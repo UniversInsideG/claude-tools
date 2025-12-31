@@ -6,12 +6,12 @@ Colección de herramientas, configuraciones y comandos personalizados para Claud
 
 | Herramienta | Descripción | Comando |
 |-------------|-------------|---------|
-| **Filosofía de Programación** | Arquitectura modular, principios DRY/SOLID, plantillas | `/filosofia` |
+| **Filosofía de Programación** | Arquitectura modular, validación automática, hooks | `/filosofia` |
 
 ## Instalación rápida
 
 ```bash
-git clone https://github.com/TU_USUARIO/claude-tools.git
+git clone https://github.com/universinsidegames/claude-tools.git
 cd claude-tools/filosofia
 ./install.sh
 ```
@@ -21,34 +21,73 @@ cd claude-tools/filosofia
 ```
 claude-tools/
 ├── README.md
-├── filosofia/                    # Filosofía de programación modular
-│   ├── CLAUDE.md                 # Instrucciones automáticas
-│   ├── CODING_PHILOSOPHY.md      # Documentación completa
-│   ├── commands/
-│   │   └── filosofia.md          # Comando /filosofia
-│   └── install.sh                # Instalador
-└── [futuras herramientas]/
+└── filosofia/                       # Filosofía de programación modular
+    ├── CLAUDE.md                    # Instrucciones automáticas
+    ├── CODING_PHILOSOPHY.md         # Documentación completa
+    ├── commands/
+    │   └── filosofia.md             # Comando /filosofia
+    ├── hooks/
+    │   ├── planning_reminder.py     # Hook: recordatorio antes de planificar
+    │   └── validate_philosophy.py   # Hook: validación antes de escribir
+    └── install.sh                   # Instalador
 ```
 
-## Uso
+## Sistema de Validación
 
-Después de instalar:
+El sistema funciona en **dos capas**:
 
-- **Automático**: Claude Code carga las instrucciones al iniciar
-- **Manual**: Usa `/filosofia` para ver principios y checklist
+```
+USUARIO PIDE CÓDIGO
+        ↓
+┌─────────────────────────────────────────────┐
+│  CAPA 1: PLANIFICACIÓN                      │
+│  Hook: planning_reminder.py                 │
+│                                             │
+│  → Detecta si vas a pedir código            │
+│  → Recuerda la filosofía a Claude           │
+│  → Claude DEBE explicar su razonamiento     │
+└─────────────────────────────────────────────┘
+        ↓
+┌─────────────────────────────────────────────┐
+│  CAPA 2: VALIDACIÓN                         │
+│  Hook: validate_philosophy.py               │
+│                                             │
+│  → Intercepta: Edit, Write, MCP Godot       │
+│  → Valida: DRY, SOLID, nomenclatura         │
+│  → Muestra advertencias si no cumple        │
+└─────────────────────────────────────────────┘
+```
+
+## Qué valida
+
+| Criterio | Qué detecta |
+|----------|-------------|
+| **Single Responsibility** | Muchas clases por archivo, funciones largas |
+| **DRY** | Código repetido, patrones copy-paste |
+| **Nomenclatura** | `*_component.gd`, `*_system.gd` |
+| **Jerarquía** | Pieza → Componente → Contenedor → Estructura |
+| **Godot** | Signals vs llamadas directas |
+| **Python** | Herencia de clases base |
+
+## Comandos disponibles
 
 ```bash
-/filosofia           # Ver resumen
+/filosofia           # Ver resumen de principios
 /filosofia check     # Checklist antes de programar
+/filosofia revisar archivo.gd  # Analizar un archivo
 /filosofia doc       # Documentación completa
 ```
 
-## Agregar nuevas herramientas
+## Compatibilidad
 
-Cada herramienta tiene su propia carpeta con:
-- `install.sh` - Instalador independiente
-- Archivos de configuración necesarios
+- **MCP Godot**: Compatible con `gdai-mcp-plugin-godot`
+- **Lenguajes**: GDScript, Python, PHP, JavaScript, HTML/CSS
+- **Plataformas**: macOS, Linux, Windows (con bash)
+
+## Principio Central
+
+> **"Máximo impacto, menor esfuerzo — a largo plazo"**
 
 ---
 
-*UniversInside - "Máximo impacto, menor esfuerzo — a largo plazo"*
+*UniversInside - Arquitectura Modular Jerárquica*
