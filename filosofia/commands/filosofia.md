@@ -1,20 +1,54 @@
 ---
-description: Activa la filosofía de programación modular usando MCP
+description: Activa la filosofía de programación modular usando MCP (7 pasos)
 ---
 
-INSTRUCCIÓN OBLIGATORIA: Antes de escribir cualquier código para esta tarea, DEBES seguir este flujo usando las herramientas del MCP philosophy:
+INSTRUCCIÓN OBLIGATORIA: Antes de escribir cualquier código, DEBES seguir los 7 pasos usando las herramientas del MCP philosophy. El MCP bloquea si saltas pasos.
 
-1. **PRIMERO** usa `philosophy_search_similar` para buscar si ya existe algo similar en el proyecto
-2. **SEGUNDO** usa `philosophy_analyze` para analizar qué vas a crear:
-   - Indica el nivel (pieza/componente/contenedor/estructura)
-   - Indica de qué hereda
-   - Indica la nomenclatura del archivo
-   - Indica qué reutiliza
+## FLUJO OBLIGATORIO (7 PASOS):
 
-3. **SOLO DESPUÉS** de completar los pasos 1 y 2, puedes escribir código
+### PASO 1: `philosophy_q1_responsabilidad`
+Pregunta: ¿Esta pieza hace UNA sola cosa?
+- Describe lo que vas a crear
+- Define la responsabilidad única
+- Indica el lenguaje (godot/python/web)
 
-4. **FINALMENTE** usa `philosophy_validate_code` para validar el código escrito
+### PASO 2: `philosophy_q2_reutilizacion`
+Pregunta: ¿Puedo reutilizar esto en otro lugar?
+- ¿Es reutilizable?
+- ¿Dónde podría reutilizarse?
+- Justifica
 
-TAREA DEL USUARIO: $ARGUMENTS
+### PASO 3: `philosophy_q3_buscar`
+Pregunta: ¿Existe algo similar que pueda extender/heredar?
+- Busca en el proyecto
+- Evalúa los resultados
+- Decide: reutilizar, extender o crear nuevo
 
-RECUERDA: Si no usas las herramientas de philosophy, el código NO será aceptado. Empieza AHORA con philosophy_search_similar.
+### PASO 4: `philosophy_q4_herencia`
+Pregunta: ¿Si cambio la base, se actualizarán las instancias?
+- Define de qué hereda
+- Qué componentes existentes reutiliza
+- Justifica la herencia
+
+### PASO 5: `philosophy_q5_nivel`
+Pregunta: ¿Está en el nivel correcto de la jerarquía?
+- Nivel: pieza/componente/contenedor/estructura
+- Nombre de archivo (nomenclatura correcta)
+- Justifica el nivel
+
+### PASO 6: Escribir código
+Siguiendo el diseño de los pasos anteriores
+
+### PASO 7: `philosophy_validate`
+Valida el código escrito
+
+## NOMENCLATURA:
+- Pieza: `pieces/*_piece.gd`
+- Componente: `components/*_component.gd`
+- Contenedor: `systems/*_system.gd`
+
+## TAREA DEL USUARIO:
+$ARGUMENTS
+
+## EMPIEZA AHORA:
+Usa `philosophy_q1_responsabilidad` para comenzar el paso 1.
