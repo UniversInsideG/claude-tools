@@ -2,45 +2,66 @@
 
 ## Filosofía de Programación Obligatoria
 
-SIEMPRE aplicar estos principios en todo el código que generes o modifiques:
+> "Máximo impacto, menor esfuerzo — a largo plazo"
 
-### Arquitectura Modular Jerárquica
-Construir desde lo pequeño hacia lo grande:
-1. **Piezas** (atómicas) → 2. **Componentes** → 3. **Contenedores** → 4. **Estructura General**
-
-### Principios Clave
-- **DRY**: No repetir código. Cambiar en 1 lugar = actualiza todo
-- **Herencia/Instancias**: Definir base, extender y reutilizar
-- **Single Responsibility**: Cada pieza hace UNA cosa
-- **Composición**: Combinar piezas pequeñas en estructuras mayores
-
-### Reglas de Implementación
-1. Antes de crear código nuevo, buscar si existe algo reutilizable
-2. Si un código se usará más de 1 vez → convertirlo en componente/clase base
-3. Preferir escenas heredadas (Godot) y clases base (Python/PHP)
-4. Usar signals/eventos para comunicación desacoplada
-5. Nombrar según nivel: `*_component`, `*_system`, etc.
-
-### Por Tecnología
-
-**Godot:**
-- Componentes como nodos independientes (`HealthComponent`, `MovementComponent`)
-- Escenas heredadas para entidades similares
-- Autoloads para sistemas globales
-- Signals para comunicación
-
-**Python:**
-- Clases base abstractas en `core/`
-- Componentes reutilizables en `components/`
-- Herencia y composición
-
-**Web (HTML/CSS/JS/PHP):**
-- Atomic Design: atoms → molecules → organisms → pages
-- Componentes CSS reutilizables
-- Módulos PHP independientes
+SIEMPRE usar el MCP `philosophy` antes de escribir código. El flujo es obligatorio.
 
 ---
 
-**Documentación completa:** `.claude/CODING_PHILOSOPHY.md`
+## Arquitectura: 4 Niveles
 
-> "Máximo impacto, menor esfuerzo — a largo plazo"
+```
+ESTRUCTURA (proyecto completo: main.tscn)
+    └── CONTENEDOR (systems/*_system.gd)
+          └── COMPONENTE (components/*_component.gd)
+                └── PIEZA (pieces/*_piece.gd)
+```
+
+---
+
+## Nomenclatura Obligatoria
+
+| Nivel | Godot | Python | Web |
+|-------|-------|--------|-----|
+| Pieza | `pieces/*_piece.gd` | `pieces/*.py` | `atoms/` |
+| Componente | `components/*_component.gd` | `components/*.py` | `molecules/` |
+| Contenedor | `systems/*_system.gd` | `systems/*.py` | `organisms/` |
+
+---
+
+## Flujo Obligatorio: 7 Pasos
+
+Usar las herramientas del MCP `philosophy` en orden:
+
+1. **`philosophy_q1_responsabilidad`** - ¿Hace UNA sola cosa?
+2. **`philosophy_q2_reutilizacion`** - ¿Puedo reutilizar?
+3. **`philosophy_q3_buscar`** - ¿Existe algo similar?
+4. **`philosophy_q4_herencia`** - ¿Se actualizan las instancias?
+5. **`philosophy_q5_nivel`** - ¿Nivel correcto? (valida nomenclatura)
+6. **Escribir código**
+7. **`philosophy_validate`** - Validar código escrito
+
+El MCP bloquea si se salta un paso.
+
+---
+
+## Las 5 Preguntas
+
+Antes de escribir código, responder:
+
+1. ¿Esta pieza hace UNA sola cosa?
+2. ¿Puedo reutilizar esto en otro lugar?
+3. ¿Existe algo similar que pueda extender/heredar?
+4. ¿Si cambio la base, se actualizarán todas las instancias?
+5. ¿Está en el nivel correcto de la jerarquía?
+
+---
+
+## Comando Rápido
+
+Usa `/filosofia [tarea]` para activar el flujo completo.
+
+---
+
+**Documentación completa:** `CODING_PHILOSOPHY.md`
+**Implementación MCP:** `philosophy-mcp/IMPLEMENTACION_MCP.md`
