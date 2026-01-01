@@ -3,7 +3,7 @@
 MCP Server: Philosophy - UniversInside
 =======================================
 Servidor MCP que fuerza la filosofía de programación modular.
-Provee herramientas que Claude DEBE usar antes de escribir código.
+"Todo debe estar construido con piezas modulares reutilizables"
 """
 
 import json
@@ -25,29 +25,34 @@ server = Server("philosophy")
 # ============================================================
 
 PHILOSOPHY = {
+    "principle": "Todo debe estar construido con piezas modulares reutilizables",
     "levels": {
         "pieza": "Unidad mínima, hace UNA sola cosa",
-        "componente": "Combina piezas, nomenclatura: *_component",
-        "contenedor": "Agrupa componentes, nomenclatura: *_system, *_manager",
+        "componente": "Reutilizable, va en components/",
+        "pantalla": "Instancia única, construida con componentes",
+        "contenedor": "Sistema que agrupa componentes (*_system, *_manager)",
         "estructura": "El proyecto completo"
     },
-    "naming": {
-        "godot": {
-            "component": r".*_component\.gd$",
-            "system": r".*_system\.gd$",
-            "manager": r".*_manager\.gd$"
-        },
-        "python": {
-            "component": r".*/components?/.*\.py$",
-            "base": r".*/core/.*\.py$"
-        }
+    "flow": {
+        "1": "Buscar si existe algo similar (philosophy_search_similar)",
+        "2": "Si existe → usarlo o extenderlo",
+        "3": "Si no existe → crearlo siguiendo la filosofía",
+        "4": "Validar que cumple las reglas (philosophy_validate_code)"
     },
-    "rules": [
-        "Buscar si existe algo similar antes de crear",
-        "Cada pieza hace UNA sola cosa",
-        "Heredar de clases/escenas base cuando sea posible",
-        "Usar signals en lugar de llamadas directas (Godot)",
-        "No duplicar código - reutilizar"
+    # Patrones que indican código NO modular en Godot
+    "godot_smells": [
+        (r"AppTheme\.style_button_primary\s*\(", "Usa PrimaryButton en lugar de Button + AppTheme.style_button_primary()"),
+        (r"AppTheme\.style_button_secondary\s*\(", "Usa SecondaryButton en lugar de Button + AppTheme.style_button_secondary()"),
+        (r"AppTheme\.style_button_icon\s*\(", "Usa IconButton en lugar de Button + AppTheme.style_button_icon()"),
+        (r"AppTheme\.style_", "Considera crear un componente en lugar de aplicar estilos manualmente"),
+    ],
+    # Patrones que indican código NO modular en Python
+    "python_smells": [
+        (r"def\s+\w+\(.*\):\s*\n(\s+.+\n){50,}", "Función muy larga. Divide en funciones más pequeñas."),
+    ],
+    # Patrones que indican código NO modular en Web
+    "web_smells": [
+        (r"style\s*=\s*[\"']", "Evita estilos inline. Usa clases CSS reutilizables."),
     ]
 }
 
@@ -62,10 +67,9 @@ async def list_tools() -> list[Tool]:
     return [
         Tool(
             name="philosophy_analyze",
-            description="""OBLIGATORIO: Usa esta herramienta ANTES de escribir cualquier código.
+            description="""OBLIGATORIO antes de escribir código.
 Analiza qué vas a crear y verifica que cumple la filosofía modular.
-Debes proporcionar: qué vas a crear, el nivel (pieza/componente/contenedor/estructura),
-si hereda de algo, y la nomenclatura propuesta.""",
+Indica: descripción, nivel, de qué hereda, nombre de archivo, lenguaje, y qué reutiliza.""",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -75,25 +79,25 @@ si hereda de algo, y la nomenclatura propuesta.""",
                     },
                     "level": {
                         "type": "string",
-                        "enum": ["pieza", "componente", "contenedor", "estructura"],
+                        "enum": ["pieza", "componente", "pantalla", "contenedor", "estructura"],
                         "description": "Nivel en la arquitectura modular"
                     },
                     "inherits_from": {
                         "type": "string",
-                        "description": "Clase o escena base de la que hereda (o 'ninguno' si no aplica)"
+                        "description": "Clase o escena base de la que hereda (o 'ninguno')"
                     },
                     "filename": {
                         "type": "string",
-                        "description": "Nombre propuesto para el archivo"
+                        "description": "Ruta completa propuesta para el archivo"
                     },
                     "language": {
                         "type": "string",
-                        "enum": ["godot", "python", "web", "other"],
+                        "enum": ["godot", "python", "php", "web", "other"],
                         "description": "Lenguaje/tecnología"
                     },
                     "reuses_existing": {
                         "type": "string",
-                        "description": "Componentes existentes que reutiliza (o 'ninguno')"
+                        "description": "Componentes existentes que reutiliza (o 'ninguno' si no encontró)"
                     }
                 },
                 "required": ["description", "level", "inherits_from", "filename", "language"]
@@ -101,9 +105,8 @@ si hereda de algo, y la nomenclatura propuesta.""",
         ),
         Tool(
             name="philosophy_search_similar",
-            description="""Busca componentes similares en el proyecto antes de crear uno nuevo.
-DEBES usar esta herramienta antes de crear cualquier componente para verificar
-que no existe algo similar que puedas reutilizar o extender.""",
+            description="""OBLIGATORIO antes de crear algo nuevo.
+Busca si ya existe algo similar en el proyecto que puedas reutilizar o extender.""",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -126,8 +129,8 @@ que no existe algo similar que puedas reutilizar o extender.""",
         ),
         Tool(
             name="philosophy_validate_code",
-            description="""Valida que un bloque de código cumple con la filosofía modular.
-Analiza responsabilidad única, duplicación, nomenclatura y nivel correcto.""",
+            description="""Valida que el código cumple con la filosofía modular.
+Detecta: código duplicado, componentes no usados, estilos manuales, etc.""",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -137,21 +140,20 @@ Analiza responsabilidad única, duplicación, nomenclatura y nivel correcto.""",
                     },
                     "filename": {
                         "type": "string",
-                        "description": "Nombre del archivo"
+                        "description": "Ruta del archivo"
                     },
-                    "expected_level": {
+                    "language": {
                         "type": "string",
-                        "enum": ["pieza", "componente", "contenedor", "estructura"],
-                        "description": "Nivel esperado según el análisis previo"
+                        "enum": ["godot", "python", "php", "web", "other"],
+                        "description": "Lenguaje del código"
                     }
                 },
-                "required": ["code", "filename", "expected_level"]
+                "required": ["code", "filename", "language"]
             }
         ),
         Tool(
             name="philosophy_checklist",
-            description="""Muestra el checklist completo de la filosofía de programación.
-Usa esto cuando necesites recordar los principios o mostrarlos al usuario.""",
+            description="""Muestra el checklist y principios de la filosofía.""",
             inputSchema={
                 "type": "object",
                 "properties": {},
@@ -186,7 +188,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         result = await validate_code(
             arguments["code"],
             arguments["filename"],
-            arguments["expected_level"]
+            arguments["language"]
         )
 
     elif name == "philosophy_checklist":
@@ -214,30 +216,39 @@ async def analyze_before_code(
 
     issues = []
     warnings = []
-    approved = True
+    suggestions = []
 
-    # Validar nomenclatura según nivel y lenguaje
+    # Validar nomenclatura según nivel y ubicación
     if language == "godot":
-        if level == "componente" and not re.search(r"_component\.gd$", filename):
-            issues.append(f"❌ Nomenclatura: Un componente debe terminar en '_component.gd', no '{filename}'")
-            approved = False
-        elif level == "contenedor" and not re.search(r"(_system|_manager)\.gd$", filename):
-            issues.append(f"❌ Nomenclatura: Un contenedor debe terminar en '_system.gd' o '_manager.gd', no '{filename}'")
-            approved = False
+        # Solo validar nomenclatura *_component.gd si está en components/
+        if level == "componente":
+            if "components/" in filename or "component" in filename.lower():
+                if not re.search(r"_component\.gd$|_button\.gd$|_card\.gd$|_dialog\.gd$|_input\.gd$", filename):
+                    warnings.append(f"⚠️ Nomenclatura: Los componentes suelen terminar en _component.gd, _button.gd, etc.")
 
-    # Validar herencia
-    if inherits_from.lower() == "ninguno" or inherits_from.strip() == "":
-        if level in ["componente", "contenedor"]:
-            warnings.append(f"⚠️ Herencia: Un {level} normalmente debería heredar de una base. Justifica por qué no.")
+        # Contenedores deben tener nomenclatura específica
+        elif level == "contenedor":
+            if not re.search(r"(_system|_manager)\.gd$", filename):
+                warnings.append(f"⚠️ Nomenclatura: Un contenedor debería terminar en '_system.gd' o '_manager.gd'")
 
-    # Validar reutilización
+        # Pantallas no requieren nomenclatura especial, pero deben heredar
+        elif level == "pantalla":
+            if inherits_from.lower() == "ninguno" or inherits_from.strip() == "":
+                issues.append("❌ Las pantallas deben heredar de BaseScreen o similar")
+
+    # Validar herencia para componentes
+    if level == "componente" and (inherits_from.lower() == "ninguno" or inherits_from.strip() == ""):
+        warnings.append("⚠️ Un componente normalmente hereda de una base. ¿Es intencional?")
+
+    # Validar que buscó componentes existentes
     if reuses_existing.lower() == "ninguno" or reuses_existing.strip() == "":
-        warnings.append("⚠️ Reutilización: ¿Buscaste componentes existentes? Usa philosophy_search_similar primero.")
+        suggestions.append("💡 ¿Usaste philosophy_search_similar? Verifica que no exista algo similar.")
 
     # Construir respuesta
     response = f"""
 ╔══════════════════════════════════════════════════════════════════╗
 ║  ANÁLISIS DE FILOSOFÍA - UniversInside                          ║
+║  "{PHILOSOPHY['principle']}"                                     ║
 ╚══════════════════════════════════════════════════════════════════╝
 
 📋 DESCRIPCIÓN: {description}
@@ -252,30 +263,34 @@ async def analyze_before_code(
 """
 
     if issues:
-        response += "❌ PROBLEMAS ENCONTRADOS:\n"
+        response += "❌ PROBLEMAS (corregir antes de continuar):\n"
         for issue in issues:
             response += f"   {issue}\n"
         response += "\n"
-        approved = False
 
     if warnings:
-        response += "⚠️ ADVERTENCIAS:\n"
+        response += "⚠️ ADVERTENCIAS (revisar):\n"
         for warning in warnings:
             response += f"   {warning}\n"
         response += "\n"
 
-    if approved and not issues:
+    if suggestions:
+        response += "💡 SUGERENCIAS:\n"
+        for suggestion in suggestions:
+            response += f"   {suggestion}\n"
+        response += "\n"
+
+    if not issues:
         response += """✅ ANÁLISIS APROBADO
 
-Puedes proceder a escribir el código siguiendo estos principios:
-• Responsabilidad única - cada función hace UNA cosa
-• Usar signals para comunicación (Godot)
-• No duplicar código existente
+Procede a escribir el código siguiendo:
+• Cada función hace UNA sola cosa
+• Usa componentes existentes (no reinventes)
+• Signals para comunicación (Godot)
+• No dupliques código
 """
     else:
-        response += """🚫 ANÁLISIS NO APROBADO
-
-Corrige los problemas antes de escribir código.
+        response += """🚫 CORRIGE LOS PROBLEMAS ANTES DE CONTINUAR
 """
 
     return response
@@ -293,7 +308,6 @@ async def search_similar_components(
     if not path.exists():
         return f"Error: El directorio {project_path} no existe"
 
-    # Definir extensiones a buscar
     extensions = {
         "gd": [".gd"],
         "tscn": [".tscn"],
@@ -305,87 +319,115 @@ async def search_similar_components(
 
     exts = extensions.get(file_type, extensions["all"])
 
-    # Buscar archivos
     found_files = []
     search_lower = search_term.lower()
 
     for ext in exts:
         for file in path.rglob(f"*{ext}"):
             if search_lower in file.name.lower() or search_lower in str(file).lower():
-                # Ignorar directorios comunes
-                if ".git" not in str(file) and "__pycache__" not in str(file):
+                if ".git" not in str(file) and "__pycache__" not in str(file) and "addons" not in str(file):
                     found_files.append(file)
 
-    # Construir respuesta
     response = f"""
 ╔══════════════════════════════════════════════════════════════════╗
-║  BÚSQUEDA DE COMPONENTES SIMILARES                              ║
+║  BÚSQUEDA DE COMPONENTES EXISTENTES                             ║
 ╚══════════════════════════════════════════════════════════════════╝
 
 🔍 Término: "{search_term}"
-📁 Directorio: {project_path}
-📄 Tipos: {file_type}
+📁 Proyecto: {project_path}
 
 """
 
     if found_files:
         response += f"✅ ENCONTRADOS ({len(found_files)} archivos):\n\n"
-        for f in found_files[:20]:  # Limitar a 20 resultados
-            relative = f.relative_to(path)
-            response += f"   • {relative}\n"
 
-        if len(found_files) > 20:
-            response += f"\n   ... y {len(found_files) - 20} más\n"
+        # Agrupar por carpeta
+        by_folder = {}
+        for f in found_files[:30]:
+            folder = str(f.parent.relative_to(path))
+            if folder not in by_folder:
+                by_folder[folder] = []
+            by_folder[folder].append(f.name)
+
+        for folder, files in by_folder.items():
+            response += f"   📁 {folder}/\n"
+            for fname in files:
+                response += f"      • {fname}\n"
+
+        if len(found_files) > 30:
+            response += f"\n   ... y {len(found_files) - 30} más\n"
 
         response += """
-⚠️ IMPORTANTE: Revisa estos archivos antes de crear uno nuevo.
-   Considera extender o reutilizar lo existente.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ DECISIÓN REQUERIDA:
+
+   • Si existe algo similar → REUTILÍZALO o EXTIÉNDELO
+   • Si no sirve → Justifica por qué creas uno nuevo
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
     else:
-        response += """❌ NO SE ENCONTRARON COINCIDENCIAS
+        response += """❌ NO SE ENCONTRÓ NADA SIMILAR
 
-   No hay componentes similares. Puedes crear uno nuevo,
-   pero asegúrate de que sea reutilizable para el futuro.
+   Puedes crear algo nuevo, pero asegúrate de que:
+   • Sea modular y reutilizable
+   • Siga la nomenclatura correcta
+   • Herede de una base si aplica
 """
 
     return response
 
 
-async def validate_code(code: str, filename: str, expected_level: str) -> str:
+async def validate_code(code: str, filename: str, language: str) -> str:
     """Valida que el código cumple con la filosofía"""
 
     issues = []
     warnings = []
 
-    # Contar clases
+    lines = code.split('\n')
+
+    # Validar según lenguaje
+    if language == "godot":
+        # Detectar "code smells" de Godot
+        for pattern, message in PHILOSOPHY["godot_smells"]:
+            matches = re.findall(pattern, code)
+            if matches:
+                issues.append(f"❌ {message}")
+
+        # Verificar signals vs llamadas directas
+        direct_calls = len(re.findall(r'get_node\(["\']/', code))
+        signals = len(re.findall(r'\.emit\(|\.connect\(', code))
+        if direct_calls > 3 and signals == 0:
+            warnings.append("⚠️ Muchas llamadas directas a nodos. Considera usar signals.")
+
+        # Verificar colores hardcodeados
+        if re.search(r'Color\s*\(\s*[\d.]+', code) and "AppTheme" not in code:
+            warnings.append("⚠️ Colores hardcodeados. Usa AppTheme para consistencia.")
+
+    elif language == "python":
+        for pattern, message in PHILOSOPHY["python_smells"]:
+            if re.search(pattern, code):
+                warnings.append(f"⚠️ {message}")
+
+    elif language == "web":
+        for pattern, message in PHILOSOPHY["web_smells"]:
+            if re.search(pattern, code):
+                warnings.append(f"⚠️ {message}")
+
+    # Validaciones universales
+    # Clases múltiples
     classes = re.findall(r'^class\s+\w+', code, re.MULTILINE)
     if len(classes) > 2:
-        issues.append(f"❌ Responsabilidad: {len(classes)} clases en un archivo. Dividir en archivos separados.")
+        warnings.append(f"⚠️ {len(classes)} clases en un archivo. Considera dividir.")
 
-    # Detectar código duplicado potencial
-    lines = code.split('\n')
+    # Código duplicado
     line_counts = {}
     for line in lines:
         stripped = line.strip()
         if len(stripped) > 30 and not stripped.startswith('#') and not stripped.startswith('//'):
             line_counts[stripped] = line_counts.get(stripped, 0) + 1
-
-    duplicates = {k: v for k, v in line_counts.items() if v >= 3}
-    if duplicates:
-        issues.append(f"❌ DRY: Hay {len(duplicates)} líneas repetidas 3+ veces. Extraer a función.")
-
-    # Validar nomenclatura Godot
-    if filename.endswith('.gd'):
-        # Verificar signals vs llamadas directas
-        direct_calls = len(re.findall(r'get_node\(["\']/', code))
-        signals = len(re.findall(r'\.emit\(|\.connect\(', code))
-
-        if direct_calls > 3 and signals == 0:
-            warnings.append("⚠️ Godot: Muchas llamadas directas a nodos. Usa signals para desacoplar.")
-
-        # Verificar estilos hardcodeados
-        if "Color(" in code and "AppTheme" not in code:
-            warnings.append("⚠️ Godot: Colores hardcodeados. Usa AppTheme para consistencia.")
+    duplicates = sum(1 for v in line_counts.values() if v >= 3)
+    if duplicates > 0:
+        warnings.append(f"⚠️ {duplicates} líneas repetidas 3+ veces. Extrae a función/componente.")
 
     # Construir respuesta
     response = f"""
@@ -394,13 +436,13 @@ async def validate_code(code: str, filename: str, expected_level: str) -> str:
 ╚══════════════════════════════════════════════════════════════════╝
 
 📄 Archivo: {filename}
-📊 Nivel esperado: {expected_level.upper()}
+🔧 Lenguaje: {language}
 📏 Líneas: {len(lines)}
 
 """
 
     if issues:
-        response += "❌ PROBLEMAS:\n"
+        response += "❌ PROBLEMAS (usar componentes existentes):\n"
         for issue in issues:
             response += f"   {issue}\n"
         response += "\n"
@@ -414,9 +456,9 @@ async def validate_code(code: str, filename: str, expected_level: str) -> str:
     if not issues and not warnings:
         response += "✅ CÓDIGO APROBADO - Cumple con la filosofía modular.\n"
     elif not issues:
-        response += "✅ CÓDIGO APROBADO CON ADVERTENCIAS - Revisar sugerencias.\n"
+        response += "✅ APROBADO CON ADVERTENCIAS - Revisar sugerencias.\n"
     else:
-        response += "🚫 CÓDIGO NO APROBADO - Corregir problemas antes de guardar.\n"
+        response += "🚫 NO APROBADO - Usa los componentes existentes.\n"
 
     return response
 
@@ -427,38 +469,51 @@ async def show_checklist() -> str:
     return """
 ╔══════════════════════════════════════════════════════════════════╗
 ║  FILOSOFÍA DE PROGRAMACIÓN - UniversInside                       ║
-║  "Máximo impacto, menor esfuerzo — a largo plazo"               ║
+║  "Todo debe estar construido con piezas modulares reutilizables" ║
 ╚══════════════════════════════════════════════════════════════════╝
 
-📐 ARQUITECTURA MODULAR JERÁRQUICA:
+📐 ARQUITECTURA:
 
-   Nivel 4: ESTRUCTURA   → El proyecto completo
-   Nivel 3: CONTENEDOR   → Sistemas (*_system.gd, *_manager.gd)
-   Nivel 2: COMPONENTE   → Combinan piezas (*_component.gd)
-   Nivel 1: PIEZA        → Unidad mínima, hace UNA cosa
+   ESTRUCTURA (proyecto)
+        └── CONTENEDOR (sistema)
+              └── PANTALLA (instancia única)
+                    └── COMPONENTE (reutilizable)
+                          └── PIEZA (atómica)
 
-📋 CHECKLIST OBLIGATORIO:
+📋 FLUJO OBLIGATORIO:
 
-   □ ¿Busqué si ya existe algo similar? (philosophy_search_similar)
-   □ ¿Es el nivel correcto? (pieza/componente/contenedor/estructura)
-   □ ¿Hereda de una clase/escena base?
-   □ ¿La nomenclatura es correcta? (*_component, *_system, etc.)
-   □ ¿Cada función hace UNA sola cosa?
-   □ ¿Usa signals en lugar de llamadas directas? (Godot)
-   □ ¿Puedo reutilizar esto en el futuro?
-
-🔧 FLUJO OBLIGATORIO:
-
-   1. philosophy_search_similar  → Buscar existente
-   2. philosophy_analyze         → Analizar antes de escribir
-   3. [Escribir código]
+   1. philosophy_search_similar  → ¿Existe algo similar?
+   2. Si existe → REUTILIZAR o EXTENDER
+   3. Si no existe → CREAR siguiendo la filosofía
    4. philosophy_validate_code   → Validar resultado
 
-⛔ NUNCA:
-   • Mezclar responsabilidades de diferentes niveles
-   • Duplicar código existente
-   • Hardcodear estilos (usar AppTheme)
-   • Usar llamadas directas cuando puedes usar signals
+✅ REGLAS (aplican a TODO, sea pantalla o componente):
+
+   □ Buscar si existe antes de crear
+   □ Usar componentes existentes (no reinventar)
+   □ Heredar de base cuando corresponda
+   □ Cada función hace UNA sola cosa
+   □ Signals para comunicación (Godot)
+   □ No estilos manuales si existe componente
+
+❌ SEÑALES DE CÓDIGO NO MODULAR:
+
+   Godot:
+   • AppTheme.style_button_*() → Usa PrimaryButton, SecondaryButton
+   • get_node() excesivo → Usa signals
+   • Color() hardcodeado → Usa AppTheme
+
+   Python:
+   • Funciones de 50+ líneas → Divide
+   • Código repetido → Extrae a función
+
+   Web:
+   • style="" inline → Usa clases CSS
+   • HTML duplicado → Crea componente
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+"Máximo impacto, menor esfuerzo — a largo plazo"
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
 
 
