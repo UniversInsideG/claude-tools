@@ -76,21 +76,21 @@ Cuando sea posible, **combinar piezas** en lugar de crear largas cadenas de here
 
 ### 3.1 Godot (GDScript)
 
-#### Estructura de Nodos
+#### Estructura de Carpetas
 ```
 Game (Estructura General)
-├── Systems/ (Contenedores)
-│   ├── AudioSystem
-│   ├── SaveSystem
-│   └── UISystem
-├── Entities/ (Componentes)
-│   ├── Player (hereda de Entity)
-│   ├── Enemy (hereda de Entity)
-│   └── NPC (hereda de Entity)
-└── Components/ (Piezas)
-    ├── HealthComponent
-    ├── MovementComponent
-    └── InteractionComponent
+├── systems/ (Contenedores - orquestan)
+│   ├── audio_system.gd
+│   ├── save_system.gd
+│   └── ui_system.gd
+├── components/ (Componentes - combinan piezas)
+│   ├── player_component.gd
+│   ├── enemy_component.gd
+│   └── npc_component.gd
+└── pieces/ (Piezas - atómicas)
+    ├── health_piece.gd
+    ├── movement_piece.gd
+    └── interaction_piece.gd
 ```
 
 #### Patrones Clave en Godot
@@ -99,10 +99,10 @@ Game (Estructura General)
 3. **Signals**: Comunicación desacoplada entre nodos
 4. **Autoloads**: Singletons para sistemas globales (GameManager, EventBus)
 
-#### Ejemplo de Componente Reutilizable
+#### Ejemplo de Pieza Reutilizable
 ```gdscript
-# components/health_component.gd
-class_name HealthComponent
+# pieces/health_piece.gd
+class_name HealthPiece
 extends Node
 
 signal died
@@ -209,9 +209,9 @@ Antes de escribir código, preguntarse:
 
 | Nivel | Godot | Python | Web |
 |-------|-------|--------|-----|
-| Pieza | `*_component.gd` | `components/*.py` | `atoms/` |
-| Componente | `*.tscn` (escena) | `modules/*.py` | `molecules/` |
-| Contenedor | `*_system.gd` | `services/*.py` | `organisms/` |
+| Pieza | `pieces/*_piece.gd` | `pieces/*.py` | `atoms/` |
+| Componente | `components/*_component.gd` | `components/*.py` | `molecules/` |
+| Contenedor | `systems/*_system.gd` | `systems/*.py` | `organisms/` |
 | Estructura | `main.tscn` | `main.py` | `pages/` |
 
 ---

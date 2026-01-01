@@ -3,14 +3,13 @@
 MCP Server: Philosophy - UniversInside
 =======================================
 Servidor MCP que fuerza la filosofía de programación modular.
-"Todo debe estar construido con piezas modulares reutilizables"
+Implementa 7 pasos obligatorios con 6 herramientas.
+
+"Máximo impacto, menor esfuerzo — a largo plazo"
 """
 
-import json
-import os
 import re
 from pathlib import Path
-from typing import Any
 
 from mcp.server import Server
 from mcp.types import Tool, TextContent
@@ -21,39 +20,82 @@ from mcp.server.stdio import stdio_server
 server = Server("philosophy")
 
 # ============================================================
+# ESTADO DE SESIÓN - Tracking de los 7 pasos
+# ============================================================
+
+SESSION_STATE = {
+    "step_1": False,  # Q1: Responsabilidad
+    "step_2": False,  # Q2: Reutilización
+    "step_3": False,  # Q3: Buscar similar
+    "step_4": False,  # Q4: Herencia
+    "step_5": False,  # Q5: Nivel
+    # step_6 es escribir código (no es herramienta)
+    # step_7 es validar
+    "current_description": None,
+    "current_level": None,
+    "current_filename": None,
+    "current_language": None,
+    "search_results": None,
+}
+
+def reset_state():
+    """Resetea el estado para una nueva creación"""
+    SESSION_STATE["step_1"] = False
+    SESSION_STATE["step_2"] = False
+    SESSION_STATE["step_3"] = False
+    SESSION_STATE["step_4"] = False
+    SESSION_STATE["step_5"] = False
+    SESSION_STATE["current_description"] = None
+    SESSION_STATE["current_level"] = None
+    SESSION_STATE["current_filename"] = None
+    SESSION_STATE["current_language"] = None
+    SESSION_STATE["search_results"] = None
+
+
+# ============================================================
 # CONFIGURACIÓN DE FILOSOFÍA
 # ============================================================
 
 PHILOSOPHY = {
-    "principle": "Todo debe estar construido con piezas modulares reutilizables",
+    "principle": "Máximo impacto, menor esfuerzo — a largo plazo",
     "levels": {
-        "pieza": "Unidad mínima, hace UNA sola cosa",
-        "componente": "Reutilizable, va en components/",
-        "pantalla": "Instancia única, construida con componentes",
-        "contenedor": "Sistema que agrupa componentes (*_system, *_manager)",
-        "estructura": "El proyecto completo"
+        "pieza": "Unidad mínima atómica, hace UNA sola cosa → pieces/*_piece.gd",
+        "componente": "Combina piezas → components/*_component.gd",
+        "contenedor": "Agrupa/orquesta componentes → systems/*_system.gd",
+        "estructura": "El proyecto completo → main.tscn"
     },
-    "flow": {
-        "1": "Buscar si existe algo similar (philosophy_search_similar)",
-        "2": "Si existe → usarlo o extenderlo",
-        "3": "Si no existe → crearlo siguiendo la filosofía",
-        "4": "Validar que cumple las reglas (philosophy_validate_code)"
+    "naming": {
+        "godot": {
+            "pieza": r".*_piece\.(gd|tscn)$",
+            "componente": r".*_component\.(gd|tscn)$",
+            "contenedor": r".*_system\.(gd|tscn)$"
+        },
+        "python": {
+            "pieza": r".*/pieces?/.*\.py$",
+            "componente": r".*/components?/.*\.py$",
+            "contenedor": r".*/systems?/.*\.py$"
+        },
+        "web": {
+            "pieza": r".*/atoms?/.*",
+            "componente": r".*/molecules?/.*",
+            "contenedor": r".*/organisms?/.*"
+        }
     },
-    # Patrones que indican código NO modular en Godot
-    "godot_smells": [
-        (r"AppTheme\.style_button_primary\s*\(", "Usa PrimaryButton en lugar de Button + AppTheme.style_button_primary()"),
-        (r"AppTheme\.style_button_secondary\s*\(", "Usa SecondaryButton en lugar de Button + AppTheme.style_button_secondary()"),
-        (r"AppTheme\.style_button_icon\s*\(", "Usa IconButton en lugar de Button + AppTheme.style_button_icon()"),
-        (r"AppTheme\.style_", "Considera crear un componente en lugar de aplicar estilos manualmente"),
-    ],
-    # Patrones que indican código NO modular en Python
-    "python_smells": [
-        (r"def\s+\w+\(.*\):\s*\n(\s+.+\n){50,}", "Función muy larga. Divide en funciones más pequeñas."),
-    ],
-    # Patrones que indican código NO modular en Web
-    "web_smells": [
-        (r"style\s*=\s*[\"']", "Evita estilos inline. Usa clases CSS reutilizables."),
-    ]
+    "code_smells": {
+        "godot": [
+            (r"AppTheme\.style_button_primary\s*\(", "Usa PrimaryButton en lugar de Button + AppTheme.style_button_primary()"),
+            (r"AppTheme\.style_button_secondary\s*\(", "Usa SecondaryButton en lugar de Button + AppTheme.style_button_secondary()"),
+            (r"AppTheme\.style_button_icon\s*\(", "Usa IconButton en lugar de Button + AppTheme.style_button_icon()"),
+            (r"AppTheme\.style_", "Considera crear un componente en lugar de aplicar estilos manualmente"),
+            (r"Color\s*\(\s*[\d.]+", "Color hardcodeado. Usa AppTheme para consistencia."),
+        ],
+        "python": [
+            (r"def\s+\w+\([^)]*\):\s*\n(?:\s+.+\n){50,}", "Función muy larga (>50 líneas). Divide en funciones más pequeñas."),
+        ],
+        "web": [
+            (r'style\s*=\s*["\']', "Evita estilos inline. Usa clases CSS reutilizables."),
+        ]
+    }
 }
 
 
@@ -65,11 +107,12 @@ PHILOSOPHY = {
 async def list_tools() -> list[Tool]:
     """Lista todas las herramientas disponibles"""
     return [
+        # Paso 1
         Tool(
-            name="philosophy_analyze",
-            description="""OBLIGATORIO antes de escribir código.
-Analiza qué vas a crear y verifica que cumple la filosofía modular.
-Indica: descripción, nivel, de qué hereda, nombre de archivo, lenguaje, y qué reutiliza.""",
+            name="philosophy_q1_responsabilidad",
+            description="""PASO 1 (OBLIGATORIO): ¿Esta pieza hace UNA sola cosa?
+Reflexiona y define la responsabilidad única de lo que vas a crear.
+Este es el PRIMER paso del flujo obligatorio.""",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -77,60 +120,127 @@ Indica: descripción, nivel, de qué hereda, nombre de archivo, lenguaje, y qué
                         "type": "string",
                         "description": "Descripción de lo que vas a crear"
                     },
-                    "level": {
+                    "responsabilidad_unica": {
                         "type": "string",
-                        "enum": ["pieza", "componente", "pantalla", "contenedor", "estructura"],
-                        "description": "Nivel en la arquitectura modular"
-                    },
-                    "inherits_from": {
-                        "type": "string",
-                        "description": "Clase o escena base de la que hereda (o 'ninguno')"
-                    },
-                    "filename": {
-                        "type": "string",
-                        "description": "Ruta completa propuesta para el archivo"
+                        "description": "Define la UNA responsabilidad que tendrá"
                     },
                     "language": {
                         "type": "string",
-                        "enum": ["godot", "python", "php", "web", "other"],
+                        "enum": ["godot", "python", "web", "other"],
                         "description": "Lenguaje/tecnología"
-                    },
-                    "reuses_existing": {
-                        "type": "string",
-                        "description": "Componentes existentes que reutiliza (o 'ninguno' si no encontró)"
                     }
                 },
-                "required": ["description", "level", "inherits_from", "filename", "language"]
+                "required": ["description", "responsabilidad_unica", "language"]
             }
         ),
+        # Paso 2
         Tool(
-            name="philosophy_search_similar",
-            description="""OBLIGATORIO antes de crear algo nuevo.
-Busca si ya existe algo similar en el proyecto que puedas reutilizar o extender.""",
+            name="philosophy_q2_reutilizacion",
+            description="""PASO 2 (OBLIGATORIO): ¿Puedo reutilizar esto en otro lugar?
+Reflexiona sobre el diseño reutilizable.
+Requiere: Paso 1 completado.""",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "es_reutilizable": {
+                        "type": "boolean",
+                        "description": "¿Se podrá reutilizar en otros lugares?"
+                    },
+                    "donde_reutilizar": {
+                        "type": "string",
+                        "description": "¿Dónde podría reutilizarse? (o 'solo aquí' si no aplica)"
+                    },
+                    "justificacion": {
+                        "type": "string",
+                        "description": "Justifica por qué es o no reutilizable"
+                    }
+                },
+                "required": ["es_reutilizable", "donde_reutilizar", "justificacion"]
+            }
+        ),
+        # Paso 3
+        Tool(
+            name="philosophy_q3_buscar",
+            description="""PASO 3 (OBLIGATORIO): ¿Existe algo similar que pueda extender/heredar?
+Busca por nombre + contenido + patrón en el proyecto.
+Requiere: Paso 2 completado.""",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "search_term": {
                         "type": "string",
-                        "description": "Término a buscar (ej: 'button', 'dialog', 'health')"
+                        "description": "Término a buscar"
                     },
                     "project_path": {
                         "type": "string",
                         "description": "Ruta del proyecto donde buscar"
                     },
-                    "file_type": {
+                    "content_pattern": {
                         "type": "string",
-                        "enum": ["gd", "tscn", "py", "php", "js", "all"],
-                        "description": "Tipo de archivo a buscar"
+                        "description": "Patrón de contenido a buscar (regex opcional)"
                     }
                 },
                 "required": ["search_term", "project_path"]
             }
         ),
+        # Paso 4
         Tool(
-            name="philosophy_validate_code",
-            description="""Valida que el código cumple con la filosofía modular.
-Detecta: código duplicado, componentes no usados, estilos manuales, etc.""",
+            name="philosophy_q4_herencia",
+            description="""PASO 4 (OBLIGATORIO): ¿Si cambio la base, se actualizarán todas las instancias?
+Define la herencia correcta basándote en lo que encontraste.
+Requiere: Paso 3 completado.""",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "hereda_de": {
+                        "type": "string",
+                        "description": "Clase/escena base de la que hereda (o 'ninguno')"
+                    },
+                    "reutiliza_existente": {
+                        "type": "string",
+                        "description": "Componentes existentes que reutiliza (o 'ninguno')"
+                    },
+                    "justificacion_herencia": {
+                        "type": "string",
+                        "description": "Justifica la decisión de herencia"
+                    }
+                },
+                "required": ["hereda_de", "reutiliza_existente", "justificacion_herencia"]
+            }
+        ),
+        # Paso 5
+        Tool(
+            name="philosophy_q5_nivel",
+            description="""PASO 5 (OBLIGATORIO): ¿Está en el nivel correcto de la jerarquía?
+Justifica el nivel y propón el nombre de archivo.
+El código valida que la nomenclatura coincida.
+Requiere: Paso 4 completado.""",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "nivel": {
+                        "type": "string",
+                        "enum": ["pieza", "componente", "contenedor", "estructura"],
+                        "description": "Nivel en la arquitectura"
+                    },
+                    "filename": {
+                        "type": "string",
+                        "description": "Nombre de archivo propuesto (con ruta)"
+                    },
+                    "justificacion_nivel": {
+                        "type": "string",
+                        "description": "Justifica por qué es este nivel"
+                    }
+                },
+                "required": ["nivel", "filename", "justificacion_nivel"]
+            }
+        ),
+        # Paso 7 (después de escribir código)
+        Tool(
+            name="philosophy_validate",
+            description="""PASO 7 (OBLIGATORIO): Valida el código escrito.
+Detecta code smells, duplicación, múltiples clases.
+Requiere: Paso 5 completado + código escrito.""",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -140,20 +250,17 @@ Detecta: código duplicado, componentes no usados, estilos manuales, etc.""",
                     },
                     "filename": {
                         "type": "string",
-                        "description": "Ruta del archivo"
-                    },
-                    "language": {
-                        "type": "string",
-                        "enum": ["godot", "python", "php", "web", "other"],
-                        "description": "Lenguaje del código"
+                        "description": "Nombre del archivo"
                     }
                 },
-                "required": ["code", "filename", "language"]
+                "required": ["code", "filename"]
             }
         ),
+        # Auxiliar
         Tool(
             name="philosophy_checklist",
-            description="""Muestra el checklist y principios de la filosofía.""",
+            description="""Muestra las 5 preguntas y la arquitectura.
+Referencia rápida. Se puede usar en cualquier momento.""",
             inputSchema={
                 "type": "object",
                 "properties": {},
@@ -167,28 +274,45 @@ Detecta: código duplicado, componentes no usados, estilos manuales, etc.""",
 async def call_tool(name: str, arguments: dict) -> list[TextContent]:
     """Ejecuta una herramienta según el nombre proporcionado"""
 
-    if name == "philosophy_analyze":
-        result = await analyze_before_code(
+    if name == "philosophy_q1_responsabilidad":
+        result = await step1_responsabilidad(
             arguments["description"],
-            arguments["level"],
-            arguments["inherits_from"],
-            arguments["filename"],
-            arguments["language"],
-            arguments.get("reuses_existing", "ninguno")
+            arguments["responsabilidad_unica"],
+            arguments["language"]
         )
 
-    elif name == "philosophy_search_similar":
-        result = await search_similar_components(
+    elif name == "philosophy_q2_reutilizacion":
+        result = await step2_reutilizacion(
+            arguments["es_reutilizable"],
+            arguments["donde_reutilizar"],
+            arguments["justificacion"]
+        )
+
+    elif name == "philosophy_q3_buscar":
+        result = await step3_buscar(
             arguments["search_term"],
             arguments["project_path"],
-            arguments.get("file_type", "all")
+            arguments.get("content_pattern", None)
         )
 
-    elif name == "philosophy_validate_code":
-        result = await validate_code(
-            arguments["code"],
+    elif name == "philosophy_q4_herencia":
+        result = await step4_herencia(
+            arguments["hereda_de"],
+            arguments["reutiliza_existente"],
+            arguments["justificacion_herencia"]
+        )
+
+    elif name == "philosophy_q5_nivel":
+        result = await step5_nivel(
+            arguments["nivel"],
             arguments["filename"],
-            arguments["language"]
+            arguments["justificacion_nivel"]
+        )
+
+    elif name == "philosophy_validate":
+        result = await step7_validate(
+            arguments["code"],
+            arguments["filename"]
         )
 
     elif name == "philosophy_checklist":
@@ -201,248 +325,423 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
 
 
 # ============================================================
-# IMPLEMENTACIÓN DE HERRAMIENTAS
+# IMPLEMENTACIÓN DE PASOS
 # ============================================================
 
-async def analyze_before_code(
-    description: str,
-    level: str,
-    inherits_from: str,
-    filename: str,
-    language: str,
-    reuses_existing: str
-) -> str:
-    """Analiza y valida antes de escribir código"""
+async def step1_responsabilidad(description: str, responsabilidad: str, language: str) -> str:
+    """PASO 1: ¿Hace UNA sola cosa?"""
 
-    issues = []
-    warnings = []
-    suggestions = []
+    # Guardar en estado
+    SESSION_STATE["current_description"] = description
+    SESSION_STATE["current_language"] = language
+    SESSION_STATE["step_1"] = True
 
-    # Validar nomenclatura según nivel y ubicación
-    if language == "godot":
-        # Solo validar nomenclatura *_component.gd si está en components/
-        if level == "componente":
-            if "components/" in filename or "component" in filename.lower():
-                if not re.search(r"_component\.gd$|_button\.gd$|_card\.gd$|_dialog\.gd$|_input\.gd$", filename):
-                    warnings.append(f"⚠️ Nomenclatura: Los componentes suelen terminar en _component.gd, _button.gd, etc.")
-
-        # Contenedores deben tener nomenclatura específica
-        elif level == "contenedor":
-            if not re.search(r"(_system|_manager)\.gd$", filename):
-                warnings.append(f"⚠️ Nomenclatura: Un contenedor debería terminar en '_system.gd' o '_manager.gd'")
-
-        # Pantallas no requieren nomenclatura especial, pero deben heredar
-        elif level == "pantalla":
-            if inherits_from.lower() == "ninguno" or inherits_from.strip() == "":
-                issues.append("❌ Las pantallas deben heredar de BaseScreen o similar")
-
-    # Validar herencia para componentes
-    if level == "componente" and (inherits_from.lower() == "ninguno" or inherits_from.strip() == ""):
-        warnings.append("⚠️ Un componente normalmente hereda de una base. ¿Es intencional?")
-
-    # Validar que buscó componentes existentes
-    if reuses_existing.lower() == "ninguno" or reuses_existing.strip() == "":
-        suggestions.append("💡 ¿Usaste philosophy_search_similar? Verifica que no exista algo similar.")
-
-    # Construir respuesta
     response = f"""
 ╔══════════════════════════════════════════════════════════════════╗
-║  ANÁLISIS DE FILOSOFÍA - UniversInside                          ║
-║  "{PHILOSOPHY['principle']}"                                     ║
+║  PASO 1/7: RESPONSABILIDAD ÚNICA                                 ║
+║  Pregunta: ¿Esta pieza hace UNA sola cosa?                       ║
 ╚══════════════════════════════════════════════════════════════════╝
 
 📋 DESCRIPCIÓN: {description}
 
-📊 CLASIFICACIÓN:
-   • Nivel: {level.upper()} - {PHILOSOPHY['levels'].get(level, '')}
-   • Archivo: {filename}
-   • Lenguaje: {language}
-   • Hereda de: {inherits_from}
-   • Reutiliza: {reuses_existing}
+🎯 RESPONSABILIDAD ÚNICA DEFINIDA:
+   {responsabilidad}
 
+🔧 LENGUAJE: {language}
+
+✅ PASO 1 COMPLETADO
+
+➡️ SIGUIENTE: Usa philosophy_q2_reutilizacion
+   Pregunta: ¿Puedo reutilizar esto en otro lugar?
 """
-
-    if issues:
-        response += "❌ PROBLEMAS (corregir antes de continuar):\n"
-        for issue in issues:
-            response += f"   {issue}\n"
-        response += "\n"
-
-    if warnings:
-        response += "⚠️ ADVERTENCIAS (revisar):\n"
-        for warning in warnings:
-            response += f"   {warning}\n"
-        response += "\n"
-
-    if suggestions:
-        response += "💡 SUGERENCIAS:\n"
-        for suggestion in suggestions:
-            response += f"   {suggestion}\n"
-        response += "\n"
-
-    if not issues:
-        response += """✅ ANÁLISIS APROBADO
-
-Procede a escribir el código siguiendo:
-• Cada función hace UNA sola cosa
-• Usa componentes existentes (no reinventes)
-• Signals para comunicación (Godot)
-• No dupliques código
-"""
-    else:
-        response += """🚫 CORRIGE LOS PROBLEMAS ANTES DE CONTINUAR
-"""
-
     return response
 
 
-async def search_similar_components(
-    search_term: str,
-    project_path: str,
-    file_type: str = "all"
-) -> str:
-    """Busca componentes similares en el proyecto"""
+async def step2_reutilizacion(es_reutilizable: bool, donde: str, justificacion: str) -> str:
+    """PASO 2: ¿Puedo reutilizar?"""
+
+    # Verificar paso anterior
+    if not SESSION_STATE["step_1"]:
+        return """
+╔══════════════════════════════════════════════════════════════════╗
+║  ⛔ ERROR: PASO OBLIGATORIO OMITIDO                              ║
+╚══════════════════════════════════════════════════════════════════╝
+
+❌ DEBES completar philosophy_q1_responsabilidad PRIMERO
+
+FLUJO OBLIGATORIO:
+   1. philosophy_q1_responsabilidad  ← FALTA
+   2. philosophy_q2_reutilizacion
+   3. philosophy_q3_buscar
+   4. philosophy_q4_herencia
+   5. philosophy_q5_nivel
+   6. [Escribir código]
+   7. philosophy_validate
+"""
+
+    SESSION_STATE["step_2"] = True
+
+    emoji = "♻️" if es_reutilizable else "📍"
+
+    response = f"""
+╔══════════════════════════════════════════════════════════════════╗
+║  PASO 2/7: REUTILIZACIÓN                                         ║
+║  Pregunta: ¿Puedo reutilizar esto en otro lugar?                 ║
+╚══════════════════════════════════════════════════════════════════╝
+
+{emoji} ¿ES REUTILIZABLE?: {"Sí" if es_reutilizable else "No"}
+
+📍 DÓNDE REUTILIZAR: {donde}
+
+💡 JUSTIFICACIÓN: {justificacion}
+
+✅ PASO 2 COMPLETADO
+
+➡️ SIGUIENTE: Usa philosophy_q3_buscar
+   Pregunta: ¿Existe algo similar que pueda extender/heredar?
+"""
+    return response
+
+
+async def step3_buscar(search_term: str, project_path: str, content_pattern: str = None) -> str:
+    """PASO 3: ¿Existe algo similar?"""
+
+    # Verificar paso anterior
+    if not SESSION_STATE["step_2"]:
+        return """
+╔══════════════════════════════════════════════════════════════════╗
+║  ⛔ ERROR: PASO OBLIGATORIO OMITIDO                              ║
+╚══════════════════════════════════════════════════════════════════╝
+
+❌ DEBES completar philosophy_q2_reutilizacion PRIMERO
+
+FLUJO OBLIGATORIO:
+   1. philosophy_q1_responsabilidad  ✅
+   2. philosophy_q2_reutilizacion    ← FALTA
+   3. philosophy_q3_buscar
+   4. philosophy_q4_herencia
+   5. philosophy_q5_nivel
+   6. [Escribir código]
+   7. philosophy_validate
+"""
 
     path = Path(project_path).expanduser().resolve()
 
     if not path.exists():
         return f"Error: El directorio {project_path} no existe"
 
-    extensions = {
-        "gd": [".gd"],
-        "tscn": [".tscn"],
-        "py": [".py"],
-        "php": [".php"],
-        "js": [".js", ".ts"],
-        "all": [".gd", ".tscn", ".py", ".php", ".js", ".ts"]
-    }
-
-    exts = extensions.get(file_type, extensions["all"])
-
-    found_files = []
+    # Buscar por nombre
+    found_by_name = []
     search_lower = search_term.lower()
 
-    for ext in exts:
+    extensions = [".gd", ".tscn", ".py", ".php", ".js", ".ts", ".jsx", ".tsx", ".vue"]
+
+    for ext in extensions:
         for file in path.rglob(f"*{ext}"):
-            if search_lower in file.name.lower() or search_lower in str(file).lower():
+            if search_lower in file.name.lower():
                 if ".git" not in str(file) and "__pycache__" not in str(file) and "addons" not in str(file):
-                    found_files.append(file)
+                    found_by_name.append(file)
+
+    # Buscar por contenido si se proporciona patrón
+    found_by_content = []
+    if content_pattern:
+        for ext in extensions:
+            for file in path.rglob(f"*{ext}"):
+                if ".git" not in str(file) and "__pycache__" not in str(file):
+                    try:
+                        content = file.read_text(encoding='utf-8', errors='ignore')
+                        if re.search(content_pattern, content, re.IGNORECASE):
+                            if file not in found_by_name:
+                                found_by_content.append(file)
+                    except:
+                        pass
+
+    # Guardar resultados
+    SESSION_STATE["search_results"] = found_by_name + found_by_content
+    SESSION_STATE["step_3"] = True
 
     response = f"""
 ╔══════════════════════════════════════════════════════════════════╗
-║  BÚSQUEDA DE COMPONENTES EXISTENTES                             ║
+║  PASO 3/7: BUSCAR SIMILAR                                        ║
+║  Pregunta: ¿Existe algo similar que pueda extender/heredar?      ║
 ╚══════════════════════════════════════════════════════════════════╝
 
-🔍 Término: "{search_term}"
-📁 Proyecto: {project_path}
+🔍 TÉRMINO: "{search_term}"
+📁 PROYECTO: {project_path}
+{"🔎 PATRÓN CONTENIDO: " + content_pattern if content_pattern else ""}
 
 """
 
-    if found_files:
-        response += f"✅ ENCONTRADOS ({len(found_files)} archivos):\n\n"
+    if found_by_name:
+        response += f"📄 POR NOMBRE ({len(found_by_name)} archivos):\n"
+        for f in found_by_name[:15]:
+            try:
+                relative = f.relative_to(path)
+                response += f"   • {relative}\n"
+            except:
+                response += f"   • {f.name}\n"
+        if len(found_by_name) > 15:
+            response += f"   ... y {len(found_by_name) - 15} más\n"
+        response += "\n"
 
-        # Agrupar por carpeta
-        by_folder = {}
-        for f in found_files[:30]:
-            folder = str(f.parent.relative_to(path))
-            if folder not in by_folder:
-                by_folder[folder] = []
-            by_folder[folder].append(f.name)
+    if found_by_content:
+        response += f"📝 POR CONTENIDO ({len(found_by_content)} archivos):\n"
+        for f in found_by_content[:10]:
+            try:
+                relative = f.relative_to(path)
+                response += f"   • {relative}\n"
+            except:
+                response += f"   • {f.name}\n"
+        response += "\n"
 
-        for folder, files in by_folder.items():
-            response += f"   📁 {folder}/\n"
-            for fname in files:
-                response += f"      • {fname}\n"
-
-        if len(found_files) > 30:
-            response += f"\n   ... y {len(found_files) - 30} más\n"
-
-        response += """
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-⚠️ DECISIÓN REQUERIDA:
-
-   • Si existe algo similar → REUTILÍZALO o EXTIÉNDELO
-   • Si no sirve → Justifica por qué creas uno nuevo
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-"""
-    else:
+    if not found_by_name and not found_by_content:
         response += """❌ NO SE ENCONTRÓ NADA SIMILAR
 
-   Puedes crear algo nuevo, pero asegúrate de que:
-   • Sea modular y reutilizable
-   • Siga la nomenclatura correcta
-   • Herede de una base si aplica
+   Puedes crear algo nuevo.
+"""
+    else:
+        response += """
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ IA: EVALÚA estos resultados y decide:
+   • ¿Puedo REUTILIZAR alguno directamente?
+   • ¿Puedo EXTENDER/HEREDAR de alguno?
+   • ¿Necesito crear uno NUEVO? ¿Por qué?
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
 
+    response += """
+✅ PASO 3 COMPLETADO
+
+➡️ SIGUIENTE: Usa philosophy_q4_herencia
+   Pregunta: ¿Si cambio la base, se actualizarán todas las instancias?
+"""
     return response
 
 
-async def validate_code(code: str, filename: str, language: str) -> str:
-    """Valida que el código cumple con la filosofía"""
+async def step4_herencia(hereda_de: str, reutiliza: str, justificacion: str) -> str:
+    """PASO 4: ¿Se actualizan las instancias?"""
 
+    # Verificar paso anterior
+    if not SESSION_STATE["step_3"]:
+        return """
+╔══════════════════════════════════════════════════════════════════╗
+║  ⛔ ERROR: PASO OBLIGATORIO OMITIDO                              ║
+╚══════════════════════════════════════════════════════════════════╝
+
+❌ DEBES completar philosophy_q3_buscar PRIMERO
+
+FLUJO OBLIGATORIO:
+   1. philosophy_q1_responsabilidad  ✅
+   2. philosophy_q2_reutilizacion    ✅
+   3. philosophy_q3_buscar           ← FALTA
+   4. philosophy_q4_herencia
+   5. philosophy_q5_nivel
+   6. [Escribir código]
+   7. philosophy_validate
+"""
+
+    SESSION_STATE["step_4"] = True
+
+    response = f"""
+╔══════════════════════════════════════════════════════════════════╗
+║  PASO 4/7: HERENCIA                                              ║
+║  Pregunta: ¿Si cambio la base, se actualizarán las instancias?   ║
+╚══════════════════════════════════════════════════════════════════╝
+
+🔗 HEREDA DE: {hereda_de}
+
+♻️ REUTILIZA EXISTENTE: {reutiliza}
+
+💡 JUSTIFICACIÓN: {justificacion}
+
+✅ PASO 4 COMPLETADO
+
+➡️ SIGUIENTE: Usa philosophy_q5_nivel
+   Pregunta: ¿Está en el nivel correcto de la jerarquía?
+"""
+    return response
+
+
+async def step5_nivel(nivel: str, filename: str, justificacion: str) -> str:
+    """PASO 5: ¿Nivel correcto?"""
+
+    # Verificar paso anterior
+    if not SESSION_STATE["step_4"]:
+        return """
+╔══════════════════════════════════════════════════════════════════╗
+║  ⛔ ERROR: PASO OBLIGATORIO OMITIDO                              ║
+╚══════════════════════════════════════════════════════════════════╝
+
+❌ DEBES completar philosophy_q4_herencia PRIMERO
+
+FLUJO OBLIGATORIO:
+   1. philosophy_q1_responsabilidad  ✅
+   2. philosophy_q2_reutilizacion    ✅
+   3. philosophy_q3_buscar           ✅
+   4. philosophy_q4_herencia         ← FALTA
+   5. philosophy_q5_nivel
+   6. [Escribir código]
+   7. philosophy_validate
+"""
+
+    # Validar nomenclatura
+    language = SESSION_STATE.get("current_language", "godot")
+    issues = []
+
+    if language in PHILOSOPHY["naming"]:
+        pattern = PHILOSOPHY["naming"][language].get(nivel)
+        if pattern and not re.search(pattern, filename):
+            expected = {
+                "pieza": "*_piece.gd" if language == "godot" else "pieces/*.py",
+                "componente": "*_component.gd" if language == "godot" else "components/*.py",
+                "contenedor": "*_system.gd" if language == "godot" else "systems/*.py",
+            }
+            issues.append(f"❌ Nomenclatura incorrecta para {nivel}: debería ser {expected.get(nivel, 'ver documentación')}")
+
+    if issues:
+        error_response = f"""
+╔══════════════════════════════════════════════════════════════════╗
+║  ⛔ ERROR: NOMENCLATURA NO VÁLIDA                                ║
+╚══════════════════════════════════════════════════════════════════╝
+
+📊 NIVEL: {nivel.upper()}
+📄 ARCHIVO: {filename}
+
+{chr(10).join(issues)}
+
+NOMENCLATURA CORRECTA:
+   • Pieza      → pieces/*_piece.gd
+   • Componente → components/*_component.gd
+   • Contenedor → systems/*_system.gd
+
+🚫 CORRIGE LA NOMENCLATURA Y VUELVE A INTENTAR
+"""
+        return error_response
+
+    # Todo OK
+    SESSION_STATE["step_5"] = True
+    SESSION_STATE["current_level"] = nivel
+    SESSION_STATE["current_filename"] = filename
+
+    response = f"""
+╔══════════════════════════════════════════════════════════════════╗
+║  PASO 5/7: NIVEL CORRECTO                                        ║
+║  Pregunta: ¿Está en el nivel correcto de la jerarquía?           ║
+╚══════════════════════════════════════════════════════════════════╝
+
+📊 NIVEL: {nivel.upper()} - {PHILOSOPHY['levels'].get(nivel, '')}
+
+📄 ARCHIVO: {filename}
+
+💡 JUSTIFICACIÓN: {justificacion}
+
+✅ NOMENCLATURA VALIDADA
+✅ PASO 5 COMPLETADO
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📝 RESUMEN DE DISEÑO:
+   • Descripción: {SESSION_STATE.get('current_description', 'N/A')}
+   • Nivel: {nivel}
+   • Archivo: {filename}
+   • Lenguaje: {language}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+➡️ SIGUIENTE:
+   PASO 6: Escribe el código siguiendo el diseño
+   PASO 7: Usa philosophy_validate para validar
+"""
+    return response
+
+
+async def step7_validate(code: str, filename: str) -> str:
+    """PASO 7: Validar código escrito"""
+
+    # Verificar paso anterior
+    if not SESSION_STATE["step_5"]:
+        return """
+╔══════════════════════════════════════════════════════════════════╗
+║  ⛔ ERROR: PASOS OBLIGATORIOS OMITIDOS                           ║
+╚══════════════════════════════════════════════════════════════════╝
+
+❌ DEBES completar los pasos 1-5 antes de validar
+
+FLUJO OBLIGATORIO:
+   1. philosophy_q1_responsabilidad
+   2. philosophy_q2_reutilizacion
+   3. philosophy_q3_buscar
+   4. philosophy_q4_herencia
+   5. philosophy_q5_nivel
+   6. [Escribir código]
+   7. philosophy_validate          ← ESTÁS AQUÍ
+
+⚠️ Empieza desde el paso 1.
+"""
+
+    language = SESSION_STATE.get("current_language", "godot")
     issues = []
     warnings = []
 
     lines = code.split('\n')
 
-    # Validar según lenguaje
-    if language == "godot":
-        # Detectar "code smells" de Godot
-        for pattern, message in PHILOSOPHY["godot_smells"]:
-            matches = re.findall(pattern, code)
-            if matches:
+    # Detectar code smells por lenguaje
+    if language in PHILOSOPHY["code_smells"]:
+        for pattern, message in PHILOSOPHY["code_smells"][language]:
+            if re.search(pattern, code):
                 issues.append(f"❌ {message}")
 
-        # Verificar signals vs llamadas directas
+    # Validar Q1: múltiples clases, funciones largas
+    classes = re.findall(r'^class\s+\w+', code, re.MULTILINE)
+    if len(classes) > 2:
+        issues.append(f"❌ Responsabilidad: {len(classes)} clases en un archivo. Viola Q1: debe hacer UNA sola cosa.")
+
+    # Detectar funciones muy largas
+    func_matches = list(re.finditer(r'^(func|def)\s+\w+', code, re.MULTILINE))
+    for i, match in enumerate(func_matches):
+        start = match.start()
+        end = func_matches[i + 1].start() if i + 1 < len(func_matches) else len(code)
+        func_code = code[start:end]
+        func_lines = len(func_code.split('\n'))
+        if func_lines > 50:
+            warnings.append(f"⚠️ Función muy larga ({func_lines} líneas). Considera dividir.")
+
+    # Validar Q4: signals vs llamadas directas (Godot)
+    if language == "godot":
         direct_calls = len(re.findall(r'get_node\(["\']/', code))
         signals = len(re.findall(r'\.emit\(|\.connect\(', code))
         if direct_calls > 3 and signals == 0:
-            warnings.append("⚠️ Muchas llamadas directas a nodos. Considera usar signals.")
+            warnings.append("⚠️ Herencia: Muchas llamadas directas. Usa signals para desacoplar.")
 
-        # Verificar colores hardcodeados
-        if re.search(r'Color\s*\(\s*[\d.]+', code) and "AppTheme" not in code:
-            warnings.append("⚠️ Colores hardcodeados. Usa AppTheme para consistencia.")
+        # Verificar extends
+        if not re.search(r'^extends\s+', code, re.MULTILINE):
+            warnings.append("⚠️ Herencia: No hay 'extends'. ¿Debería heredar de algo?")
 
-    elif language == "python":
-        for pattern, message in PHILOSOPHY["python_smells"]:
-            if re.search(pattern, code):
-                warnings.append(f"⚠️ {message}")
-
-    elif language == "web":
-        for pattern, message in PHILOSOPHY["web_smells"]:
-            if re.search(pattern, code):
-                warnings.append(f"⚠️ {message}")
-
-    # Validaciones universales
-    # Clases múltiples
-    classes = re.findall(r'^class\s+\w+', code, re.MULTILINE)
-    if len(classes) > 2:
-        warnings.append(f"⚠️ {len(classes)} clases en un archivo. Considera dividir.")
-
-    # Código duplicado
+    # Detectar código duplicado
     line_counts = {}
     for line in lines:
         stripped = line.strip()
         if len(stripped) > 30 and not stripped.startswith('#') and not stripped.startswith('//'):
             line_counts[stripped] = line_counts.get(stripped, 0) + 1
+
     duplicates = sum(1 for v in line_counts.values() if v >= 3)
     if duplicates > 0:
-        warnings.append(f"⚠️ {duplicates} líneas repetidas 3+ veces. Extrae a función/componente.")
+        issues.append(f"❌ DRY: {duplicates} líneas repetidas 3+ veces. Extrae a función/componente.")
 
     # Construir respuesta
     response = f"""
 ╔══════════════════════════════════════════════════════════════════╗
-║  VALIDACIÓN DE CÓDIGO - UniversInside                           ║
+║  PASO 7/7: VALIDACIÓN FINAL                                      ║
 ╚══════════════════════════════════════════════════════════════════╝
 
-📄 Archivo: {filename}
-🔧 Lenguaje: {language}
-📏 Líneas: {len(lines)}
+📄 ARCHIVO: {filename}
+🔧 LENGUAJE: {language}
+📏 LÍNEAS: {len(lines)}
 
 """
 
     if issues:
-        response += "❌ PROBLEMAS (usar componentes existentes):\n"
+        response += "❌ PROBLEMAS (bloquean):\n"
         for issue in issues:
             response += f"   {issue}\n"
         response += "\n"
@@ -454,65 +753,75 @@ async def validate_code(code: str, filename: str, language: str) -> str:
         response += "\n"
 
     if not issues and not warnings:
-        response += "✅ CÓDIGO APROBADO - Cumple con la filosofía modular.\n"
+        response += "✅ CÓDIGO APROBADO\n\n"
+        response += "El código cumple con la filosofía modular.\n"
+        # Resetear estado para la próxima creación
+        reset_state()
     elif not issues:
-        response += "✅ APROBADO CON ADVERTENCIAS - Revisar sugerencias.\n"
+        response += "✅ CÓDIGO APROBADO CON ADVERTENCIAS\n\n"
+        response += "Considera las advertencias para mejorar.\n"
+        # Resetear estado
+        reset_state()
     else:
-        response += "🚫 NO APROBADO - Usa los componentes existentes.\n"
+        response += """🚫 CÓDIGO NO APROBADO
+
+Corrige los problemas y vuelve a validar.
+El código NO cumple con: "Máximo impacto, menor esfuerzo — a largo plazo"
+"""
 
     return response
 
 
 async def show_checklist() -> str:
-    """Muestra el checklist completo de filosofía"""
+    """Muestra el checklist completo"""
 
-    return """
+    current_step = "Ninguno"
+    if SESSION_STATE["step_5"]:
+        current_step = "5 completados → Listo para escribir código"
+    elif SESSION_STATE["step_4"]:
+        current_step = "4/5 → Falta: Q5 Nivel"
+    elif SESSION_STATE["step_3"]:
+        current_step = "3/5 → Falta: Q4 Herencia"
+    elif SESSION_STATE["step_2"]:
+        current_step = "2/5 → Falta: Q3 Buscar"
+    elif SESSION_STATE["step_1"]:
+        current_step = "1/5 → Falta: Q2 Reutilización"
+
+    return f"""
 ╔══════════════════════════════════════════════════════════════════╗
 ║  FILOSOFÍA DE PROGRAMACIÓN - UniversInside                       ║
-║  "Todo debe estar construido con piezas modulares reutilizables" ║
+║  "Máximo impacto, menor esfuerzo — a largo plazo"               ║
 ╚══════════════════════════════════════════════════════════════════╝
 
-📐 ARQUITECTURA:
+📊 ESTADO ACTUAL: {current_step}
 
-   ESTRUCTURA (proyecto)
-        └── CONTENEDOR (sistema)
-              └── PANTALLA (instancia única)
-                    └── COMPONENTE (reutilizable)
-                          └── PIEZA (atómica)
+📐 ARQUITECTURA (4 niveles):
 
-📋 FLUJO OBLIGATORIO:
+   ESTRUCTURA (proyecto completo: main.tscn)
+        └── CONTENEDOR (systems/*_system.gd)
+              └── COMPONENTE (components/*_component.gd)
+                    └── PIEZA (pieces/*_piece.gd)
 
-   1. philosophy_search_similar  → ¿Existe algo similar?
-   2. Si existe → REUTILIZAR o EXTENDER
-   3. Si no existe → CREAR siguiendo la filosofía
-   4. philosophy_validate_code   → Validar resultado
+📋 LAS 5 PREGUNTAS (flujo obligatorio):
 
-✅ REGLAS (aplican a TODO, sea pantalla o componente):
+   {"✅" if SESSION_STATE["step_1"] else "□"} 1. ¿Esta pieza hace UNA sola cosa?
+   {"✅" if SESSION_STATE["step_2"] else "□"} 2. ¿Puedo reutilizar esto en otro lugar?
+   {"✅" if SESSION_STATE["step_3"] else "□"} 3. ¿Existe algo similar que pueda extender/heredar?
+   {"✅" if SESSION_STATE["step_4"] else "□"} 4. ¿Si cambio la base, se actualizarán todas las instancias?
+   {"✅" if SESSION_STATE["step_5"] else "□"} 5. ¿Está en el nivel correcto de la jerarquía?
 
-   □ Buscar si existe antes de crear
-   □ Usar componentes existentes (no reinventar)
-   □ Heredar de base cuando corresponda
-   □ Cada función hace UNA sola cosa
-   □ Signals para comunicación (Godot)
-   □ No estilos manuales si existe componente
+🔧 FLUJO DE HERRAMIENTAS:
 
-❌ SEÑALES DE CÓDIGO NO MODULAR:
-
-   Godot:
-   • AppTheme.style_button_*() → Usa PrimaryButton, SecondaryButton
-   • get_node() excesivo → Usa signals
-   • Color() hardcodeado → Usa AppTheme
-
-   Python:
-   • Funciones de 50+ líneas → Divide
-   • Código repetido → Extrae a función
-
-   Web:
-   • style="" inline → Usa clases CSS
-   • HTML duplicado → Crea componente
+   philosophy_q1_responsabilidad  → Paso 1
+   philosophy_q2_reutilizacion    → Paso 2
+   philosophy_q3_buscar           → Paso 3
+   philosophy_q4_herencia         → Paso 4
+   philosophy_q5_nivel            → Paso 5
+   [Escribir código]              → Paso 6
+   philosophy_validate            → Paso 7
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-"Máximo impacto, menor esfuerzo — a largo plazo"
+Si saltas un paso, el MCP bloquea y muestra error.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
 
