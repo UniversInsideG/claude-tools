@@ -59,26 +59,30 @@ def reset_state():
 PHILOSOPHY = {
     "principle": "Máximo impacto, menor esfuerzo — a largo plazo",
     "levels": {
-        "pieza": "Unidad mínima atómica, hace UNA sola cosa → pieces/*_piece.gd",
-        "componente": "Combina piezas → components/*_component.gd",
-        "contenedor": "Agrupa/orquesta componentes → systems/*_system.gd",
+        "pieza": "Atómica, hace UNA sola cosa → pieces/*_piece.(gd|tscn)",
+        "componente": "Combina piezas → components/*_component.(gd|tscn)",
+        "contenedor": "Lógica reutilizable, orquesta componentes → systems/*_system.(gd|tscn)",
+        "pantalla": "Vista única del usuario, orquesta contenedores → screens/*_screen.(gd|tscn)",
         "estructura": "El proyecto completo → main.tscn"
     },
     "naming": {
         "godot": {
             "pieza": r".*_piece\.(gd|tscn)$",
             "componente": r".*_component\.(gd|tscn)$",
-            "contenedor": r".*_system\.(gd|tscn)$"
+            "contenedor": r".*_system\.(gd|tscn)$",
+            "pantalla": r".*_screen\.(gd|tscn)$"
         },
         "python": {
             "pieza": r".*/pieces?/.*\.py$",
             "componente": r".*/components?/.*\.py$",
-            "contenedor": r".*/systems?/.*\.py$"
+            "contenedor": r".*/systems?/.*\.py$",
+            "pantalla": r".*/screens?/.*\.py$"
         },
         "web": {
             "pieza": r".*/atoms?/.*",
             "componente": r".*/molecules?/.*",
-            "contenedor": r".*/organisms?/.*"
+            "contenedor": r".*/organisms?/.*",
+            "pantalla": r".*/templates?/.*"
         }
     },
     "code_smells": {
@@ -220,8 +224,8 @@ Requiere: Paso 4 completado.""",
                 "properties": {
                     "nivel": {
                         "type": "string",
-                        "enum": ["pieza", "componente", "contenedor", "estructura"],
-                        "description": "Nivel en la arquitectura"
+                        "enum": ["pieza", "componente", "contenedor", "pantalla", "estructura"],
+                        "description": "Nivel en la arquitectura (5 niveles)"
                     },
                     "filename": {
                         "type": "string",
@@ -592,9 +596,10 @@ FLUJO OBLIGATORIO:
         pattern = PHILOSOPHY["naming"][language].get(nivel)
         if pattern and not re.search(pattern, filename):
             expected = {
-                "pieza": "*_piece.gd" if language == "godot" else "pieces/*.py",
-                "componente": "*_component.gd" if language == "godot" else "components/*.py",
-                "contenedor": "*_system.gd" if language == "godot" else "systems/*.py",
+                "pieza": "*_piece.(gd|tscn)" if language == "godot" else "pieces/*.py",
+                "componente": "*_component.(gd|tscn)" if language == "godot" else "components/*.py",
+                "contenedor": "*_system.(gd|tscn)" if language == "godot" else "systems/*.py",
+                "pantalla": "*_screen.(gd|tscn)" if language == "godot" else "screens/*.py",
             }
             issues.append(f"❌ Nomenclatura incorrecta para {nivel}: debería ser {expected.get(nivel, 'ver documentación')}")
 
@@ -609,10 +614,12 @@ FLUJO OBLIGATORIO:
 
 {chr(10).join(issues)}
 
-NOMENCLATURA CORRECTA:
-   • Pieza      → pieces/*_piece.gd
-   • Componente → components/*_component.gd
-   • Contenedor → systems/*_system.gd
+NOMENCLATURA CORRECTA (5 niveles):
+   • Pieza      → pieces/*_piece.(gd|tscn)
+   • Componente → components/*_component.(gd|tscn)
+   • Contenedor → systems/*_system.(gd|tscn)
+   • Pantalla   → screens/*_screen.(gd|tscn)
+   • Estructura → main.tscn
 
 🚫 CORRIGE LA NOMENCLATURA Y VUELVE A INTENTAR
 """
@@ -795,12 +802,16 @@ async def show_checklist() -> str:
 
 📊 ESTADO ACTUAL: {current_step}
 
-📐 ARQUITECTURA (4 niveles):
+📐 ARQUITECTURA (5 niveles = Atomic Design):
 
    ESTRUCTURA (proyecto completo: main.tscn)
-        └── CONTENEDOR (systems/*_system.gd)
-              └── COMPONENTE (components/*_component.gd)
-                    └── PIEZA (pieces/*_piece.gd)
+        └── PANTALLA (vista única: screens/*_screen)
+              └── CONTENEDOR (lógica reutilizable: systems/*_system)
+                    └── COMPONENTE (combina piezas: components/*_component)
+                          └── PIEZA (atómica: pieces/*_piece)
+
+   Contenedor = lógica reutilizable en varias pantallas
+   Pantalla = vista única del usuario (no reutilizable)
 
 📋 LAS 5 PREGUNTAS (flujo obligatorio):
 

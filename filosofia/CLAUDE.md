@@ -8,14 +8,19 @@ SIEMPRE usar el MCP `philosophy` antes de escribir código. El flujo es obligato
 
 ---
 
-## Arquitectura: 4 Niveles
+## Arquitectura: 5 Niveles (= Atomic Design)
 
 ```
 ESTRUCTURA (proyecto completo: main.tscn)
-    └── CONTENEDOR (systems/*_system.gd)
-          └── COMPONENTE (components/*_component.gd)
-                └── PIEZA (pieces/*_piece.gd)
+    └── PANTALLA (vista única del usuario: screens/*_screen)
+          └── CONTENEDOR (lógica reutilizable: systems/*_system)
+                └── COMPONENTE (combina piezas: components/*_component)
+                      └── PIEZA (atómica: pieces/*_piece)
 ```
+
+**Contenedor vs Pantalla:**
+- Contenedor = lógica reutilizable en varias pantallas
+- Pantalla = vista única del usuario (no reutilizable)
 
 ---
 
@@ -23,9 +28,13 @@ ESTRUCTURA (proyecto completo: main.tscn)
 
 | Nivel | Godot | Python | Web |
 |-------|-------|--------|-----|
-| Pieza | `pieces/*_piece.gd` | `pieces/*.py` | `atoms/` |
-| Componente | `components/*_component.gd` | `components/*.py` | `molecules/` |
-| Contenedor | `systems/*_system.gd` | `systems/*.py` | `organisms/` |
+| 1. Pieza | `pieces/*_piece.(gd\|tscn)` | `pieces/*.py` | `atoms/` |
+| 2. Componente | `components/*_component.(gd\|tscn)` | `components/*.py` | `molecules/` |
+| 3. Contenedor | `systems/*_system.(gd\|tscn)` | `systems/*.py` | `organisms/` |
+| 4. Pantalla | `screens/*_screen.(gd\|tscn)` | `screens/*.py` | `templates/` |
+| 5. Estructura | `main.tscn` | `main.py` | `app/` |
+
+> **Godot:** La extensión (`.gd` o `.tscn`) no determina el nivel. Lo determina la nomenclatura (`*_piece`, `*_component`, etc.).
 
 ---
 

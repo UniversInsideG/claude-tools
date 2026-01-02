@@ -32,7 +32,7 @@ Pregunta: ¿Si cambio la base, se actualizarán las instancias?
 
 ### PASO 5: `philosophy_q5_nivel`
 Pregunta: ¿Está en el nivel correcto de la jerarquía?
-- Nivel: pieza/componente/contenedor/estructura
+- Nivel: pieza/componente/contenedor/pantalla/estructura
 - Nombre de archivo (nomenclatura correcta)
 - Justifica el nivel
 
@@ -42,10 +42,27 @@ Siguiendo el diseño de los pasos anteriores
 ### PASO 7: `philosophy_validate`
 Valida el código escrito
 
-## NOMENCLATURA:
-- Pieza: `pieces/*_piece.gd`
-- Componente: `components/*_component.gd`
-- Contenedor: `systems/*_system.gd`
+## ARQUITECTURA (5 NIVELES = Atomic Design):
+```
+ESTRUCTURA (main.tscn)
+    └── PANTALLA (vista única: screens/*_screen)
+          └── CONTENEDOR (lógica reutilizable: systems/*_system)
+                └── COMPONENTE (combina piezas: components/*_component)
+                      └── PIEZA (atómica: pieces/*_piece)
+```
+
+**Contenedor vs Pantalla:**
+- Contenedor = lógica reutilizable en varias pantallas
+- Pantalla = vista única del usuario (no reutilizable)
+
+## NOMENCLATURA (Godot):
+- 1. Pieza: `pieces/*_piece.(gd|tscn)`
+- 2. Componente: `components/*_component.(gd|tscn)`
+- 3. Contenedor: `systems/*_system.(gd|tscn)`
+- 4. Pantalla: `screens/*_screen.(gd|tscn)`
+- 5. Estructura: `main.tscn`
+
+> La extensión no determina el nivel, lo determina la nomenclatura.
 
 ## TAREA DEL USUARIO:
 $ARGUMENTS

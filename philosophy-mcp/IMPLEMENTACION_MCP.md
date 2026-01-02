@@ -5,41 +5,170 @@
 
 ---
 
-## 1. Nomenclatura Clara
+## 0. Instalación y Configuración
 
-| Nivel | Carpeta | Archivo | Función |
-|-------|---------|---------|---------|
-| Pieza | `pieces/` | `*_piece.gd` | Atómica, hace UNA cosa |
-| Componente | `components/` | `*_component.gd` | Combina piezas |
-| Contenedor | `systems/` | `*_system.gd` | Orquesta componentes |
-| Estructura | raíz | `main.tscn` | Proyecto completo |
+### Requisitos
+- Python 3.10+
+- Claude Code CLI
+- Paquete MCP: `pip install mcp`
+
+### Paso 1: Clonar/Copiar el servidor
+```bash
+# Copiar la carpeta philosophy-mcp a tu máquina
+cp -r philosophy-mcp /ruta/destino/
+```
+
+### Paso 2: Instalar dependencias
+```bash
+pip install mcp
+```
+
+### Paso 3: Configurar Claude Code
+
+**Opción A: Global (recomendado)** - disponible en todos los proyectos:
+```bash
+# Crear/editar ~/.claude/.mcp.json
+```
+
+```json
+{
+  "philosophy": {
+    "command": "python3",
+    "args": ["/ruta/completa/a/philosophy-mcp/server.py"]
+  }
+}
+```
+
+**Opción B: Por proyecto** - solo en un proyecto específico:
+```bash
+# Crear .mcp.json en la raíz del proyecto
+```
+
+```json
+{
+  "philosophy": {
+    "command": "python3",
+    "args": ["/ruta/completa/a/philosophy-mcp/server.py"]
+  }
+}
+```
+
+### Paso 4: Reiniciar Claude Code
+Sal y vuelve a entrar a Claude Code para que cargue el MCP.
+
+### Paso 5: Verificar instalación
+```bash
+# En Claude Code, ejecuta:
+/mcp
+```
+Debería aparecer `philosophy` en la lista.
+
+### Paso 6: Copiar el comando /filosofia (opcional)
+```bash
+# Para tenerlo disponible globalmente:
+cp filosofia/commands/filosofia.md ~/.claude/commands/
+```
+
+---
+
+## 1. Nomenclatura Clara (5 Niveles = Atomic Design)
+
+La arquitectura sigue el mismo patrón que **Atomic Design** para web, adaptado a apps/juegos.
+
+| Nivel | Nombre | Carpeta | Función | Web (Atomic Design) |
+|-------|--------|---------|---------|---------------------|
+| 1 | Pieza | `pieces/` | Atómica, hace UNA cosa | Atoms |
+| 2 | Componente | `components/` | Combina piezas | Molecules |
+| 3 | Contenedor | `systems/` | Lógica reutilizable, orquesta componentes | Organisms |
+| 4 | Pantalla | `screens/` | Vista única del usuario, orquesta contenedores | Templates/Pages |
+| 5 | Estructura | raíz | Proyecto completo | App |
 
 ### Por lenguaje
 
 | Nivel | Godot | Python | Web |
 |-------|-------|--------|-----|
-| Pieza | `pieces/*_piece.gd` | `pieces/*.py` | `atoms/` |
-| Componente | `components/*_component.gd` | `components/*.py` | `molecules/` |
-| Contenedor | `systems/*_system.gd` | `systems/*.py` | `organisms/` |
-| Estructura | `main.tscn` | `main.py` | `pages/` |
+| 1. Pieza | `pieces/*_piece.(gd\|tscn)` | `pieces/*.py` | `atoms/` |
+| 2. Componente | `components/*_component.(gd\|tscn)` | `components/*.py` | `molecules/` |
+| 3. Contenedor | `systems/*_system.(gd\|tscn)` | `systems/*.py` | `organisms/` |
+| 4. Pantalla | `screens/*_screen.(gd\|tscn)` | `screens/*.py` | `templates/` |
+| 5. Estructura | `main.tscn` | `main.py` | `app/` |
+
+> **Nota Godot:** Cada nivel puede ser `.gd` (solo código), `.tscn` (solo visual), o ambos (visual + script adjunto). La extensión no determina el nivel, lo determina la **nomenclatura** (`*_piece`, `*_component`, etc.).
 
 ---
 
-## 2. Arquitectura: 4 Niveles
+## 2. Determinar Nivel (sin nomenclatura previa)
+
+Cuando el código no tiene nomenclatura o tiene una diferente:
+
+### Por carpeta (si aplica)
+Si está en `pieces/`, `components/`, `systems/`, `screens/` → ese es su nivel.
+
+### Por análisis (flujo de decisión)
 
 ```
-ESTRUCTURA (proyecto completo)
-    └── CONTENEDOR (orquesta)
-          └── COMPONENTE (combina)
-                └── PIEZA (atómica)
+¿Hace UNA sola cosa atómica?
+  └── Sí → PIEZA
+  └── No → ¿Combina piezas para UNA función?
+              └── Sí → COMPONENTE
+              └── No → ¿Orquesta componentes?
+                          └── Sí → CONTENEDOR
+                          └── No → ¿Es una vista completa del usuario?
+                                      └── Sí → PANTALLA
+                                      └── No → ESTRUCTURA
 ```
 
-- "Pantalla" NO es un nivel separado
-- Una pantalla es un **componente** compuesto de otros componentes/piezas
+### Criterios de identificación
+
+| Criterio | Pieza | Componente | Contenedor | Pantalla |
+|----------|-------|------------|------------|----------|
+| Responsabilidad | UNA cosa | UNA función (varias piezas) | Lógica reutilizable | Vista única del usuario |
+| Dependencias | Ninguna o mínimas | Usa piezas | Usa componentes | Usa contenedores |
+| Reutilizable | Muy reutilizable | Reutilizable | Sí (en varias pantallas) | No (única para esa vista) |
+| Enfoque | Qué hace | Qué combina | Qué lógica orquesta | Qué ve el usuario |
+| Ejemplo | `health_bar.gd` | `player_stats.gd` | `combat_system.gd` | `battle_screen.tscn` |
+
+### Contenedor vs Pantalla (distinción clave)
+
+```
+battle_screen.tscn (PANTALLA - vista única)
+    ├── combat_system.gd (CONTENEDOR - reutilizable en otras pantallas)
+    ├── inventory_system.gd (CONTENEDOR - reutilizable)
+    └── ui_overlay_component (COMPONENTE)
+```
+
+| | Contenedor | Pantalla |
+|-|------------|----------|
+| **Es** | Función/lógica reutilizable | Vista única del usuario |
+| **Orquesta** | Componentes para UNA lógica | Contenedores para UNA experiencia |
+| **Puede usarse en** | Múltiples pantallas | Solo esa vista |
+| **Ejemplo** | `combat_system` → battle, training, arena | `battle_screen` → solo batalla |
 
 ---
 
-## 3. Las 5 Preguntas (del documento base)
+## 3. Arquitectura: 5 Niveles
+
+```
+ESTRUCTURA (proyecto completo: main.tscn)
+    └── PANTALLA (vista única: screens/*_screen.tscn)
+          └── CONTENEDOR (lógica reutilizable: systems/*_system.gd)
+                └── COMPONENTE (combina piezas: components/*_component.gd)
+                      └── PIEZA (atómica: pieces/*_piece.gd)
+```
+
+### Resumen por nivel
+
+| Nivel | Qué es | Reutilizable | Ejemplo |
+|-------|--------|--------------|---------|
+| Pieza | UNA cosa atómica | Muy | `health_bar_piece.gd` |
+| Componente | Combina piezas | Sí | `player_stats_component.gd` |
+| Contenedor | Lógica que orquesta | Sí (en varias pantallas) | `combat_system.gd` |
+| Pantalla | Vista única del usuario | No | `battle_screen.tscn` |
+| Estructura | Proyecto completo | N/A | `main.tscn` |
+
+---
+
+## 4. Las 5 Preguntas (del documento base)
 
 Antes de escribir código, responder:
 
@@ -51,7 +180,7 @@ Antes de escribir código, responder:
 
 ---
 
-## 4. IA + Código Trabajan Juntos (por paso)
+## 5. IA + Código Trabajan Juntos (por paso)
 
 | Paso | Pregunta | IA hace | Código hace | Cuándo código |
 |------|----------|---------|-------------|---------------|
@@ -64,7 +193,7 @@ Antes de escribir código, responder:
 
 ---
 
-## 5. Validación: ANTES y DESPUÉS
+## 6. Validación: ANTES y DESPUÉS
 
 ### ANTES de escribir código (Pasos 1-5)
 
@@ -87,7 +216,7 @@ Antes de escribir código, responder:
 
 ---
 
-## 6. Code Smells por Lenguaje
+## 7. Code Smells por Lenguaje
 
 ### Godot
 - `AppTheme.style_*()` → Usar componentes existentes
@@ -107,7 +236,7 @@ Antes de escribir código, responder:
 
 ---
 
-## 7. Búsqueda Mejorada
+## 8. Búsqueda Mejorada
 
 `philosophy_q3_buscar` debe buscar:
 
@@ -117,7 +246,7 @@ Antes de escribir código, responder:
 
 ---
 
-## 8. Comportamiento ante Fallo
+## 9. Comportamiento ante Fallo
 
 - **BLOQUEAR** si el diseño no es óptimo
 - No permitir continuar si no aplica el principio central
@@ -131,7 +260,7 @@ Antes de escribir código, responder:
 
 ---
 
-## 9. Migración de Código Existente
+## 10. Migración de Código Existente
 
 - El código existente debe migrarse a la nueva nomenclatura
 - Aunque sea incómodo, es necesario para consistencia
@@ -139,7 +268,7 @@ Antes de escribir código, responder:
 
 ---
 
-## 10. Flujo Forzado con Código: 7 Pasos
+## 11. Flujo Forzado con Código: 7 Pasos
 
 El orden se fuerza mediante **estado/tracking** en el MCP.
 Cada herramienta requiere que la anterior esté completada.
@@ -164,7 +293,7 @@ Si se intenta saltar un paso, el MCP **bloquea** y muestra error.
 
 ---
 
-## 11. Herramientas del MCP (6 herramientas)
+## 12. Herramientas del MCP (6 herramientas)
 
 ### philosophy_q1_responsabilidad
 - **Pregunta:** ¿Esta pieza hace UNA sola cosa?
@@ -196,11 +325,18 @@ Si se intenta saltar un paso, el MCP **bloquea** y muestra error.
 
 ### philosophy_q5_nivel
 - **Pregunta:** ¿Está en el nivel correcto de la jerarquía?
-- **IA hace:** Justifica elección de nivel (pieza/componente/contenedor/estructura)
+- **IA hace:** Justifica elección de nivel (pieza/componente/contenedor/pantalla/estructura)
 - **Código hace:** Valida nomenclatura vs nivel declarado
 - **Requiere:** step_4 completado
 - **Marca:** step_5 = true
 - **Bloquea si:** Nomenclatura no coincide con nivel
+
+**Niveles válidos (5):**
+- `pieza` → `pieces/*_piece.(gd|tscn)`
+- `componente` → `components/*_component.(gd|tscn)`
+- `contenedor` → `systems/*_system.(gd|tscn)`
+- `pantalla` → `screens/*_screen.(gd|tscn)`
+- `estructura` → `main.tscn`
 
 ### philosophy_validate
 - **Paso:** Validación final del código escrito
@@ -215,7 +351,7 @@ Si se intenta saltar un paso, el MCP **bloquea** y muestra error.
 
 ### philosophy_checklist (auxiliar)
 - Muestra las 5 preguntas
-- Muestra arquitectura de 4 niveles
+- Muestra arquitectura de 5 niveles
 - Referencia rápida
 - No requiere estado, se puede usar en cualquier momento
 
