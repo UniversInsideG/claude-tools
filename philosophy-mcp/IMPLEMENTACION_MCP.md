@@ -69,6 +69,33 @@ Debería aparecer `philosophy` en la lista.
 cp filosofia/commands/filosofia.md ~/.claude/commands/
 ```
 
+### Paso 7: Configurar CLAUDE.md global (opcional)
+Para que Claude aplique la filosofía automáticamente en todos los proyectos:
+
+```bash
+# Crear/editar ~/.claude/CLAUDE.md
+```
+
+```markdown
+# Instrucciones Globales para Claude Code
+
+## Filosofía de Programación
+
+**OBLIGATORIO:** Antes de escribir cualquier código, usar el MCP `philosophy` si está disponible.
+
+- Seguir los 7 pasos del flujo obligatorio
+- Aplicar arquitectura de 5 niveles (Pieza → Componente → Contenedor → Pantalla → Estructura)
+- Validar nomenclatura según el lenguaje
+- Principio: "Máximo impacto, menor esfuerzo — a largo plazo"
+
+Si el MCP no está disponible, aplicar mentalmente las 5 preguntas:
+1. ¿Hace UNA sola cosa?
+2. ¿Puedo reutilizar?
+3. ¿Existe algo similar?
+4. ¿Se actualizan las instancias si cambio la base?
+5. ¿Nivel correcto?
+```
+
 ---
 
 ## 1. Nomenclatura Clara (5 Niveles = Atomic Design)
