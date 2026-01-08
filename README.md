@@ -11,7 +11,7 @@ Colección de herramientas, configuraciones y comandos personalizados para Claud
 ## Instalación rápida
 
 ```bash
-git clone https://github.com/universinsidegames/claude-tools.git
+git clone https://github.com/UniversInsideG/claude-tools
 cd claude-tools/filosofia
 ./install.sh
 ```
