@@ -53,11 +53,21 @@ pip install mcp
 
 #### Opción A: Instalador automático (recomendado)
 
-1. Descargar/clonar el repositorio
+1. Descargar/clonar el repositorio en una ubicación permanente:
+   ```
+   C:\Users\TuUsuario\claude-tools\
+   ```
+   O en Documentos:
+   ```
+   C:\Users\TuUsuario\Documents\claude-tools\
+   ```
+
 2. Ir a la carpeta `philosophy-mcp`
 3. **Doble clic en `INSTALAR.bat`**
 4. Seguir las instrucciones en pantalla
 5. Reiniciar Claude Code
+
+> **IMPORTANTE:** No muevas la carpeta después de instalar. El MCP usa la ruta donde instalaste.
 
 El instalador automáticamente:
 - Detecta Python
