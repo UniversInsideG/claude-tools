@@ -1,0 +1,6 @@
+{
+  "philosophy": {
+    "command": "python3",
+    "args": ["/Users/cecilia/Documents/GitHub/claude-tools/philosophy-mcp/server.py"]
+  }
+}
