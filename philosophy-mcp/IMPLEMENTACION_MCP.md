@@ -51,13 +51,31 @@ pip install mcp
 
 ### Instalación en Windows
 
-#### Paso 1: Copiar el servidor
+#### Opción A: Instalador automático (recomendado)
+
+1. Descargar/clonar el repositorio
+2. Ir a la carpeta `philosophy-mcp`
+3. **Doble clic en `INSTALAR.bat`**
+4. Seguir las instrucciones en pantalla
+5. Reiniciar Claude Code
+
+El instalador automáticamente:
+- Detecta Python
+- Instala dependencias
+- Configura `.mcp.json`
+- Instala el comando `/filosofia`
+
+---
+
+#### Opción B: Instalación manual
+
+##### Paso 1: Copiar el servidor
 ```powershell
 # Copiar la carpeta philosophy-mcp a tu ubicación deseada
 # Ejemplo: C:\Users\TuUsuario\claude-tools\philosophy-mcp
 ```
 
-#### Paso 2: Instalar dependencias
+##### Paso 2: Instalar dependencias
 
 ```powershell
 pip install mcp
@@ -81,7 +99,7 @@ C:\Users\TuUsuario\AppData\Local\Programs\Python\Python311\Scripts\pip.exe insta
 2. Marcar "Add Python to PATH" durante la instalación
 3. Reiniciar la terminal
 
-#### Paso 3: Configurar Claude Code
+##### Paso 3: Configurar Claude Code
 
 **Opción A: Global (recomendado)**
 
