@@ -12,20 +12,23 @@
 - Claude Code CLI
 - Paquete MCP: `pip install mcp`
 
-### Paso 1: Clonar/Copiar el servidor
+---
+
+### Instalación en macOS/Linux
+
+#### Paso 1: Copiar el servidor
 ```bash
-# Copiar la carpeta philosophy-mcp a tu máquina
 cp -r philosophy-mcp /ruta/destino/
 ```
 
-### Paso 2: Instalar dependencias
+#### Paso 2: Instalar dependencias
 ```bash
 pip install mcp
 ```
 
-### Paso 3: Configurar Claude Code
+#### Paso 3: Configurar Claude Code
 
-**Opción A: Global (recomendado)** - disponible en todos los proyectos:
+**Opción A: Global (recomendado)**
 ```bash
 # Crear/editar ~/.claude/.mcp.json
 ```
@@ -39,16 +42,59 @@ pip install mcp
 }
 ```
 
-**Opción B: Por proyecto** - solo en un proyecto específico:
+**Opción B: Por proyecto**
 ```bash
 # Crear .mcp.json en la raíz del proyecto
 ```
 
+---
+
+### Instalación en Windows
+
+#### Paso 1: Copiar el servidor
+```powershell
+# Copiar la carpeta philosophy-mcp a tu ubicación deseada
+# Ejemplo: C:\Users\TuUsuario\claude-tools\philosophy-mcp
+```
+
+#### Paso 2: Instalar dependencias
+```powershell
+pip install mcp
+```
+
+#### Paso 3: Configurar Claude Code
+
+**Opción A: Global (recomendado)**
+
+Crear archivo en: `C:\Users\TuUsuario\.claude\.mcp.json`
+
 ```json
 {
   "philosophy": {
-    "command": "python3",
-    "args": ["/ruta/completa/a/philosophy-mcp/server.py"]
+    "command": "python",
+    "args": ["C:\\Users\\TuUsuario\\claude-tools\\philosophy-mcp\\server.py"]
+  }
+}
+```
+
+> **Nota Windows:** Usar `python` en lugar de `python3`, y rutas con `\\` o `/`
+
+**Opción B: Por proyecto**
+
+Crear `.mcp.json` en la raíz del proyecto con la misma estructura.
+
+#### Paso 4: Verificar Python en PATH
+```powershell
+python --version
+# Debe mostrar Python 3.10+
+```
+
+Si no funciona, añadir Python al PATH o usar ruta completa:
+```json
+{
+  "philosophy": {
+    "command": "C:\\Users\\TuUsuario\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+    "args": ["C:\\Users\\TuUsuario\\claude-tools\\philosophy-mcp\\server.py"]
   }
 }
 ```
