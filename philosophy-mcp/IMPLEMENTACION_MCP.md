@@ -58,9 +58,28 @@ pip install mcp
 ```
 
 #### Paso 2: Instalar dependencias
+
 ```powershell
 pip install mcp
 ```
+
+**Si `pip` no funciona, probar estas alternativas:**
+
+```powershell
+# Opción 1: Usar py launcher
+py -m pip install mcp
+
+# Opción 2: Usar python -m
+python -m pip install mcp
+
+# Opción 3: Ruta completa (ajustar versión)
+C:\Users\TuUsuario\AppData\Local\Programs\Python\Python311\Scripts\pip.exe install mcp
+```
+
+**Si ninguna funciona:**
+1. Reinstalar Python desde https://www.python.org/downloads/
+2. Marcar "Add Python to PATH" durante la instalación
+3. Reiniciar la terminal
 
 #### Paso 3: Configurar Claude Code
 
