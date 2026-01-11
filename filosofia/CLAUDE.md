@@ -4,7 +4,18 @@
 
 > "Máximo impacto, menor esfuerzo — a largo plazo"
 
-SIEMPRE usar el MCP `philosophy` antes de escribir código. El flujo es obligatorio.
+SIEMPRE usar el MCP `philosophy` antes de escribir o modificar código. El flujo es obligatorio.
+
+### ⚠️ APLICA A TODO (SIN EXCEPCIONES):
+
+| Tipo | ¿Usar flujo? | Por qué |
+|------|--------------|---------|
+| Código nuevo | ✅ SÍ | Diseño correcto desde inicio |
+| Bug fix | ✅ SÍ | Un bug es señal de problema estructural |
+| Modificación | ✅ SÍ | Verificar que no rompe arquitectura |
+| Refactor | ✅ SÍ | Oportunidad de mejorar |
+
+**NUNCA racionalizar para saltarse el flujo.** "Es solo un fix pequeño" es una excusa.
 
 ---
 

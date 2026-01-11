@@ -35,6 +35,7 @@ SESSION_STATE = {
     "current_level": None,
     "current_filename": None,
     "current_language": None,
+    "current_change_type": None,  # nuevo/modificacion/bugfix/refactor
     "search_results": None,
 }
 
@@ -49,6 +50,7 @@ def reset_state():
     SESSION_STATE["current_level"] = None
     SESSION_STATE["current_filename"] = None
     SESSION_STATE["current_language"] = None
+    SESSION_STATE["current_change_type"] = None
     SESSION_STATE["search_results"] = None
 
 
@@ -116,13 +118,14 @@ async def list_tools() -> list[Tool]:
             name="philosophy_q1_responsabilidad",
             description="""PASO 1 (OBLIGATORIO): ¿Esta pieza hace UNA sola cosa?
 Reflexiona y define la responsabilidad única de lo que vas a crear.
-Este es el PRIMER paso del flujo obligatorio.""",
+Este es el PRIMER paso del flujo obligatorio.
+APLICA A TODO: código nuevo, bug fixes, refactors, modificaciones.""",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "description": {
                         "type": "string",
-                        "description": "Descripción de lo que vas a crear"
+                        "description": "Descripción de lo que vas a crear/modificar"
                     },
                     "responsabilidad_unica": {
                         "type": "string",
@@ -132,9 +135,14 @@ Este es el PRIMER paso del flujo obligatorio.""",
                         "type": "string",
                         "enum": ["godot", "python", "web", "other"],
                         "description": "Lenguaje/tecnología"
+                    },
+                    "tipo_cambio": {
+                        "type": "string",
+                        "enum": ["nuevo", "modificacion", "bugfix", "refactor"],
+                        "description": "Tipo de cambio: nuevo (crear desde cero), modificacion (alterar existente), bugfix (corregir error), refactor (mejorar estructura)"
                     }
                 },
-                "required": ["description", "responsabilidad_unica", "language"]
+                "required": ["description", "responsabilidad_unica", "language", "tipo_cambio"]
             }
         ),
         # Paso 2
@@ -282,7 +290,8 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         result = await step1_responsabilidad(
             arguments["description"],
             arguments["responsabilidad_unica"],
-            arguments["language"]
+            arguments["language"],
+            arguments.get("tipo_cambio", "nuevo")
         )
 
     elif name == "philosophy_q2_reutilizacion":
@@ -332,19 +341,32 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
 # IMPLEMENTACIÓN DE PASOS
 # ============================================================
 
-async def step1_responsabilidad(description: str, responsabilidad: str, language: str) -> str:
+async def step1_responsabilidad(description: str, responsabilidad: str, language: str, tipo_cambio: str = "nuevo") -> str:
     """PASO 1: ¿Hace UNA sola cosa?"""
 
     # Guardar en estado
     SESSION_STATE["current_description"] = description
     SESSION_STATE["current_language"] = language
+    SESSION_STATE["current_change_type"] = tipo_cambio
     SESSION_STATE["step_1"] = True
+
+    # Emoji y contexto según tipo de cambio
+    tipo_info = {
+        "nuevo": ("🆕", "Código nuevo", "Diseñar correctamente desde el inicio"),
+        "modificacion": ("✏️", "Modificación", "Verificar que no rompe la responsabilidad única"),
+        "bugfix": ("🐛", "Bug fix", "¿El bug revela un problema estructural?"),
+        "refactor": ("♻️", "Refactor", "Oportunidad de mejorar la arquitectura"),
+    }
+    emoji, tipo_label, tipo_contexto = tipo_info.get(tipo_cambio, ("📝", tipo_cambio, ""))
 
     response = f"""
 ╔══════════════════════════════════════════════════════════════════╗
 ║  PASO 1/7: RESPONSABILIDAD ÚNICA                                 ║
 ║  Pregunta: ¿Esta pieza hace UNA sola cosa?                       ║
 ╚══════════════════════════════════════════════════════════════════╝
+
+{emoji} TIPO DE CAMBIO: {tipo_label}
+   → {tipo_contexto}
 
 📋 DESCRIPCIÓN: {description}
 
@@ -782,7 +804,7 @@ El código NO cumple con: "Máximo impacto, menor esfuerzo — a largo plazo"
 async def show_checklist() -> str:
     """Muestra el checklist completo"""
 
-    current_step = "Ninguno"
+    current_step = "Ningún flujo activo"
     if SESSION_STATE["step_5"]:
         current_step = "5 completados → Listo para escribir código"
     elif SESSION_STATE["step_4"]:
@@ -794,13 +816,22 @@ async def show_checklist() -> str:
     elif SESSION_STATE["step_1"]:
         current_step = "1/5 → Falta: Q2 Reutilización"
 
+    change_type = SESSION_STATE.get("current_change_type")
+    change_type_display = f"({change_type})" if change_type else ""
+
     return f"""
 ╔══════════════════════════════════════════════════════════════════╗
 ║  FILOSOFÍA DE PROGRAMACIÓN - UniversInside                       ║
 ║  "Máximo impacto, menor esfuerzo — a largo plazo"               ║
 ╚══════════════════════════════════════════════════════════════════╝
 
-📊 ESTADO ACTUAL: {current_step}
+⚠️ APLICA A TODO (sin excepciones):
+   • Código nuevo    → Diseño correcto desde inicio
+   • Bug fix         → Un bug es señal de problema estructural
+   • Modificación    → Verificar que no rompe arquitectura
+   • Refactor        → Oportunidad de mejorar
+
+📊 ESTADO ACTUAL: {current_step} {change_type_display}
 
 📐 ARQUITECTURA (5 niveles = Atomic Design):
 

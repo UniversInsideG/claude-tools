@@ -2,38 +2,51 @@
 
 Servidor MCP que fuerza la filosofía de programación modular en Claude Code.
 
-## Herramientas que provee
+> **"Máximo impacto, menor esfuerzo — a largo plazo"**
 
-| Herramienta | Descripción | Uso |
-|-------------|-------------|-----|
-| `philosophy_analyze` | Analiza ANTES de escribir código | OBLIGATORIO |
-| `philosophy_search_similar` | Busca componentes existentes | OBLIGATORIO |
-| `philosophy_validate_code` | Valida código escrito | Recomendado |
-| `philosophy_checklist` | Muestra el checklist completo | Referencia |
+## Herramientas (7 pasos obligatorios)
+
+| Paso | Herramienta | Pregunta |
+|------|-------------|----------|
+| 1 | `philosophy_q1_responsabilidad` | ¿Hace UNA sola cosa? |
+| 2 | `philosophy_q2_reutilizacion` | ¿Puedo reutilizar? |
+| 3 | `philosophy_q3_buscar` | ¿Existe algo similar? |
+| 4 | `philosophy_q4_herencia` | ¿Se actualizan las instancias? |
+| 5 | `philosophy_q5_nivel` | ¿Nivel correcto? |
+| 6 | *Escribir código* | - |
+| 7 | `philosophy_validate` | Validar código |
+
+**Auxiliar:** `philosophy_checklist` - Muestra referencia rápida
+
+## Aplica a TODO (sin excepciones)
+
+| Tipo de cambio | ¿Usar flujo? | Por qué |
+|----------------|--------------|---------|
+| Código nuevo | ✅ SÍ | Diseño correcto desde inicio |
+| Bug fix | ✅ SÍ | Un bug es señal de problema estructural |
+| Modificación | ✅ SÍ | Verificar que no rompe arquitectura |
+| Refactor | ✅ SÍ | Oportunidad de mejorar |
+
+---
 
 ## Instalación
 
-### 1. Instalar dependencias
+### Windows (recomendado)
+
+1. Descarga o clona este repositorio
+2. Navega a la carpeta `philosophy-mcp`
+3. Doble clic en **`INSTALAR.bat`**
+4. Reinicia Claude Code
+
+### macOS / Linux
 
 ```bash
 cd philosophy-mcp
 pip install -r requirements.txt
+claude mcp add philosophy -- python3 $(pwd)/server.py
 ```
 
-### 2. Registrar en Claude Code
-
-```bash
-claude mcp add philosophy -- python3 /ruta/completa/philosophy-mcp/server.py
-```
-
-**IMPORTANTE**: Usa la ruta absoluta completa.
-
-Ejemplo:
-```bash
-claude mcp add philosophy -- python3 /Users/cecilia/Documents/GitHub/claude-tools/philosophy-mcp/server.py
-```
-
-### 3. Verificar
+### Verificar instalación
 
 ```bash
 claude mcp list
@@ -43,6 +56,65 @@ Debe mostrar:
 ```
 philosophy (local - stdio)
 ```
+
+---
+
+## Actualización
+
+### Windows
+
+> **Nota:** La actualización se hace desde el Explorador de Windows, NO desde Claude Code.
+
+1. Cierra Claude Code si está abierto
+2. Actualiza los archivos:
+   - **Con git:** Abre terminal en la carpeta y ejecuta `git pull`
+   - **Sin git:** Descarga el ZIP y reemplaza los archivos
+3. Abre la carpeta `philosophy-mcp` en el Explorador
+4. Doble clic en **`ACTUALIZAR.bat`**
+5. Abre Claude Code de nuevo
+
+### macOS / Linux
+
+```bash
+cd philosophy-mcp
+git pull  # o descarga la nueva versión
+# Reinicia Claude Code
+```
+
+### Verificar actualización
+
+Después de reiniciar, ejecuta:
+```
+/filosofia arreglar bug en función X
+```
+
+El paso 1 debe pedir el parámetro `tipo_cambio` (nuevo/modificacion/bugfix/refactor).
+
+---
+
+## Reiniciar MCP manualmente
+
+Si los cambios no se aplican:
+
+### Opción 1: Reiniciar Claude Code
+Cierra completamente y vuelve a abrir.
+
+### Opción 2: Desde terminal
+```bash
+# Ver MCPs activos
+claude mcp list
+
+# Quitar y volver a añadir
+claude mcp remove philosophy
+claude mcp add philosophy -- python3 /ruta/completa/server.py
+```
+
+### Opción 3: Windows - Matar procesos
+```powershell
+Get-Process -Name "claude*" | Stop-Process -Force
+```
+
+---
 
 ## Uso
 

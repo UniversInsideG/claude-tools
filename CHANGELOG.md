@@ -4,6 +4,34 @@ Historial de cambios del MCP de Filosofía de Programación UniversInside.
 
 ---
 
+## [1.3.0] - 2025-01-11
+
+### Añadido
+- **Nuevo parámetro `tipo_cambio`** en paso 1 (obligatorio)
+  - Valores: `nuevo`, `modificacion`, `bugfix`, `refactor`
+  - Cada tipo muestra contexto específico (ej: "¿El bug revela un problema estructural?")
+- **Actualizador automático para Windows** (`ACTUALIZAR.bat`)
+  - Actualiza comando `/filosofia`
+  - Opción de cerrar Claude Code automáticamente
+  - Verifica configuración MCP existente
+- **Documentación de actualización** en README
+
+### Cambiado
+- **Regla explícita: SIEMPRE usar filosofía, sin excepciones**
+  - Bug fixes, modificaciones, refactors → todos requieren flujo completo
+  - Añadida tabla "Aplica a TODO" en CLAUDE.md, README, y comando /filosofia
+  - Mensaje: "NUNCA racionalizar para saltarse el flujo"
+- `philosophy_checklist` ahora muestra recordatorio de que aplica a todo
+- README reorganizado con secciones de Instalación, Actualización y Reinicio manual
+
+### Archivos modificados
+- `server.py` - nuevo parámetro y estado `current_change_type`
+- `CLAUDE.md` (global y local) - tabla de excepciones
+- `filosofia/commands/filosofia.md` - tabla y nuevo parámetro
+- `README.md` - documentación completa
+
+---
+
 ## [1.2.0] - 2025-01-09
 
 ### Añadido

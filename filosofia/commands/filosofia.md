@@ -2,15 +2,27 @@
 description: Activa la filosofía de programación modular usando MCP (7 pasos)
 ---
 
-INSTRUCCIÓN OBLIGATORIA: Antes de escribir cualquier código, DEBES seguir los 7 pasos usando las herramientas del MCP philosophy. El MCP bloquea si saltas pasos.
+INSTRUCCIÓN OBLIGATORIA: Antes de escribir o modificar cualquier código, DEBES seguir los 7 pasos usando las herramientas del MCP philosophy. El MCP bloquea si saltas pasos.
+
+## ⚠️ APLICA A TODO (SIN EXCEPCIONES):
+
+| Tipo | ¿Usar flujo? | Por qué |
+|------|--------------|---------|
+| Código nuevo | ✅ SÍ | Diseño correcto desde inicio |
+| Bug fix | ✅ SÍ | Un bug es señal de problema estructural |
+| Modificación | ✅ SÍ | Verificar que no rompe arquitectura |
+| Refactor | ✅ SÍ | Oportunidad de mejorar |
+
+**NUNCA racionalizar para saltarse el flujo.** "Es solo un fix pequeño" es una excusa que acumula deuda técnica.
 
 ## FLUJO OBLIGATORIO (7 PASOS):
 
 ### PASO 1: `philosophy_q1_responsabilidad`
 Pregunta: ¿Esta pieza hace UNA sola cosa?
-- Describe lo que vas a crear
+- Describe lo que vas a crear/modificar
 - Define la responsabilidad única
 - Indica el lenguaje (godot/python/web)
+- Indica el tipo de cambio (nuevo/modificacion/bugfix/refactor)
 
 ### PASO 2: `philosophy_q2_reutilizacion`
 Pregunta: ¿Puedo reutilizar esto en otro lugar?
