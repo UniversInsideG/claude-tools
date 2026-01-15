@@ -350,13 +350,41 @@ El análisis arquitectónico **NO reemplaza** el flujo q1→q7, lo **complementa
 ## 8. PRÓXIMOS PASOS
 
 1. ✅ Documentar diseño (este archivo)
-2. ⬜ Implementar `philosophy_architecture_analysis`
-3. ⬜ Implementar `philosophy_architecture_resume`
-4. ⬜ Implementar `philosophy_architecture_checkpoint`
-5. ⬜ Implementar `philosophy_architecture_execute`
-6. ⬜ Actualizar `philosophy_checklist` para mostrar estado de análisis
-7. ⬜ Probar con proyecto real
-8. ⬜ Documentar uso en CLAUDE.md
+2. ✅ Implementar `philosophy_architecture_analysis`
+3. ✅ Implementar `philosophy_architecture_resume`
+4. ✅ Implementar `philosophy_architecture_checkpoint`
+5. ✅ Implementar `philosophy_architecture_status` (reemplaza execute)
+6. ✅ Probar con proyecto real (2026-01-14)
+7. ⬜ Documentar uso en CLAUDE.md
+
+## 9. USO RÁPIDO
+
+```
+# Iniciar análisis de un proyecto
+philosophy_architecture_analysis(
+    project_path="/ruta/al/proyecto",
+    language="godot",  # godot | python | web | other
+    project_name="mi-proyecto"
+)
+
+# Ver estado actual
+philosophy_architecture_status()
+
+# Guardar checkpoint
+philosophy_architecture_checkpoint(
+    analysis_file="/ruta/.claude/architecture_analysis_xxx.md",
+    checkpoint=1,
+    phase="FASE_1",
+    current_task="Descripción de lo completado",
+    next_step="Descripción del siguiente paso",
+    data="Contenido markdown del checkpoint"
+)
+
+# Retomar después de compactación
+philosophy_architecture_resume(
+    analysis_file="/ruta/.claude/architecture_analysis_xxx.md"
+)
+```
 
 ---
 

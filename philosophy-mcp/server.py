@@ -9,7 +9,9 @@ Implementa 7 pasos obligatorios con 6 herramientas.
 """
 
 import re
+import json
 from pathlib import Path
+from datetime import datetime
 
 from mcp.server import Server
 from mcp.types import Tool, TextContent
@@ -52,6 +54,29 @@ def reset_state():
     SESSION_STATE["current_language"] = None
     SESSION_STATE["current_change_type"] = None
     SESSION_STATE["search_results"] = None
+
+
+# ============================================================
+# ESTADO DE ANÁLISIS ARQUITECTÓNICO
+# ============================================================
+
+ARCHITECTURE_STATE = {
+    "active": False,
+    "analysis_file": None,
+    "checkpoint": 0,
+    "phase": None,  # FASE_0, FASE_1, FASE_2, FASE_3, FASE_4, EJECUTANDO
+    "project_path": None,
+    "language": None,
+}
+
+def reset_architecture_state():
+    """Resetea el estado del análisis arquitectónico"""
+    ARCHITECTURE_STATE["active"] = False
+    ARCHITECTURE_STATE["analysis_file"] = None
+    ARCHITECTURE_STATE["checkpoint"] = 0
+    ARCHITECTURE_STATE["phase"] = None
+    ARCHITECTURE_STATE["project_path"] = None
+    ARCHITECTURE_STATE["language"] = None
 
 
 # ============================================================
@@ -278,6 +303,123 @@ Referencia rápida. Se puede usar en cualquier momento.""",
                 "properties": {},
                 "required": []
             }
+        ),
+        # ============================================================
+        # ANÁLISIS ARQUITECTÓNICO GLOBAL
+        # ============================================================
+        Tool(
+            name="philosophy_architecture_analysis",
+            description="""ANÁLISIS ARQUITECTÓNICO GLOBAL para refactorizaciones.
+
+"El análisis ES exhaustivo, sistemático y exacto"
+
+Úsalo cuando necesites:
+- Refactorizar un módulo/proyecto completo
+- Entender la arquitectura actual de código existente
+- Reorganizar código que funciona para hacerlo mantenible
+
+NO es para: crear una pieza nueva (usa el flujo q1→q7)
+
+El análisis:
+1. Crea archivo de documentación persistente
+2. Escanea TODOS los archivos del módulo
+3. Identifica funcionalidades existentes
+4. Mapea cada archivo al nivel correcto (pieza/componente/contenedor/pantalla/estructura)
+5. Detecta problemas arquitectónicos
+6. Genera plan de refactorización con tests de verificación
+7. Guarda checkpoints para retomar si se compacta la conversación""",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "project_path": {
+                        "type": "string",
+                        "description": "Ruta del proyecto/módulo a analizar"
+                    },
+                    "language": {
+                        "type": "string",
+                        "enum": ["godot", "python", "web", "other"],
+                        "description": "Lenguaje/tecnología principal"
+                    },
+                    "project_name": {
+                        "type": "string",
+                        "description": "Nombre del proyecto (para el archivo de documentación)"
+                    }
+                },
+                "required": ["project_path", "language", "project_name"]
+            }
+        ),
+        Tool(
+            name="philosophy_architecture_resume",
+            description="""RETOMAR análisis arquitectónico después de compactación.
+
+Lee el archivo de análisis y retoma EXACTAMENTE donde se quedó.
+Usa esto cuando:
+- La conversación se ha compactado
+- Quieres continuar un análisis previo
+- Necesitas recordar el estado actual del análisis""",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "analysis_file": {
+                        "type": "string",
+                        "description": "Ruta al archivo .md de análisis arquitectónico"
+                    }
+                },
+                "required": ["analysis_file"]
+            }
+        ),
+        Tool(
+            name="philosophy_architecture_checkpoint",
+            description="""GUARDAR checkpoint del análisis arquitectónico.
+
+Guarda el progreso actual en el archivo de documentación.
+Usa esto para asegurar que no se pierde información.""",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "analysis_file": {
+                        "type": "string",
+                        "description": "Ruta al archivo .md de análisis"
+                    },
+                    "checkpoint": {
+                        "type": "integer",
+                        "description": "Número de checkpoint (1-4)"
+                    },
+                    "phase": {
+                        "type": "string",
+                        "enum": ["FASE_1", "FASE_2", "FASE_3", "FASE_4", "EJECUTANDO"],
+                        "description": "Fase actual del análisis"
+                    },
+                    "current_task": {
+                        "type": "string",
+                        "description": "Descripción de la tarea actual"
+                    },
+                    "next_step": {
+                        "type": "string",
+                        "description": "Descripción del siguiente paso"
+                    },
+                    "data": {
+                        "type": "string",
+                        "description": "Datos del checkpoint en formato markdown (inventario, mapa, análisis o plan)"
+                    }
+                },
+                "required": ["analysis_file", "checkpoint", "phase", "current_task", "next_step", "data"]
+            }
+        ),
+        Tool(
+            name="philosophy_architecture_status",
+            description="""VER ESTADO del análisis arquitectónico actual.
+
+Muestra:
+- Archivo de análisis activo
+- Checkpoint actual
+- Fase actual
+- Progreso general""",
+            inputSchema={
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
         )
     ]
 
@@ -330,6 +472,32 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
 
     elif name == "philosophy_checklist":
         result = await show_checklist()
+
+    # Análisis arquitectónico
+    elif name == "philosophy_architecture_analysis":
+        result = await architecture_analysis(
+            arguments["project_path"],
+            arguments["language"],
+            arguments["project_name"]
+        )
+
+    elif name == "philosophy_architecture_resume":
+        result = await architecture_resume(
+            arguments["analysis_file"]
+        )
+
+    elif name == "philosophy_architecture_checkpoint":
+        result = await architecture_checkpoint(
+            arguments["analysis_file"],
+            arguments["checkpoint"],
+            arguments["phase"],
+            arguments["current_task"],
+            arguments["next_step"],
+            arguments["data"]
+        )
+
+    elif name == "philosophy_architecture_status":
+        result = await architecture_status()
 
     else:
         result = f"Error: Herramienta '{name}' no encontrada"
@@ -866,6 +1034,525 @@ async def show_checklist() -> str:
 Si saltas un paso, el MCP bloquea y muestra error.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
+
+
+# ============================================================
+# ANÁLISIS ARQUITECTÓNICO - IMPLEMENTACIÓN
+# ============================================================
+
+def get_file_info(file_path: Path, language: str) -> dict:
+    """Extrae información de un archivo de código"""
+    try:
+        content = file_path.read_text(encoding='utf-8', errors='ignore')
+        lines = content.split('\n')
+
+        # Contar clases y funciones según lenguaje
+        if language == "godot":
+            classes = len(re.findall(r'^class\s+\w+', content, re.MULTILINE))
+            classes += 1 if re.search(r'^class_name\s+', content, re.MULTILINE) else 0
+            functions = len(re.findall(r'^func\s+\w+', content, re.MULTILINE))
+            extends = re.search(r'^extends\s+(\w+)', content, re.MULTILINE)
+            extends = extends.group(1) if extends else None
+        elif language == "python":
+            classes = len(re.findall(r'^class\s+\w+', content, re.MULTILINE))
+            functions = len(re.findall(r'^def\s+\w+', content, re.MULTILINE))
+            extends = None
+        elif language == "web":
+            classes = len(re.findall(r'class\s+\w+', content))
+            functions = len(re.findall(r'function\s+\w+|const\s+\w+\s*=\s*(?:async\s*)?\(', content))
+            extends = None
+        else:
+            classes = 0
+            functions = 0
+            extends = None
+
+        # Determinar nivel actual basado en nomenclatura
+        filename = file_path.name.lower()
+        nivel_actual = "sin_clasificar"
+
+        if language == "godot":
+            if "_piece." in filename:
+                nivel_actual = "pieza"
+            elif "_component." in filename:
+                nivel_actual = "componente"
+            elif "_system." in filename:
+                nivel_actual = "contenedor"
+            elif "_screen." in filename:
+                nivel_actual = "pantalla"
+            elif filename == "main.tscn":
+                nivel_actual = "estructura"
+        elif language == "python":
+            path_str = str(file_path).lower()
+            if "/pieces/" in path_str or "/piece/" in path_str:
+                nivel_actual = "pieza"
+            elif "/components/" in path_str or "/component/" in path_str:
+                nivel_actual = "componente"
+            elif "/systems/" in path_str or "/system/" in path_str:
+                nivel_actual = "contenedor"
+            elif "/screens/" in path_str or "/screen/" in path_str:
+                nivel_actual = "pantalla"
+
+        return {
+            "path": str(file_path),
+            "name": file_path.name,
+            "lines": len(lines),
+            "classes": classes,
+            "functions": functions,
+            "extends": extends,
+            "nivel_actual": nivel_actual
+        }
+    except Exception as e:
+        return {
+            "path": str(file_path),
+            "name": file_path.name,
+            "lines": 0,
+            "classes": 0,
+            "functions": 0,
+            "extends": None,
+            "nivel_actual": "error",
+            "error": str(e)
+        }
+
+
+def scan_project_files(project_path: Path, language: str) -> list:
+    """Escanea TODOS los archivos del proyecto"""
+    files_info = []
+
+    # Extensiones por lenguaje
+    extensions = {
+        "godot": [".gd", ".tscn"],
+        "python": [".py"],
+        "web": [".js", ".ts", ".jsx", ".tsx", ".vue", ".svelte"],
+        "other": [".gd", ".py", ".js", ".ts"]
+    }
+
+    exts = extensions.get(language, extensions["other"])
+
+    # Carpetas a ignorar
+    ignore_dirs = {".git", "__pycache__", "node_modules", ".godot", "addons", "venv", ".venv"}
+
+    for ext in exts:
+        for file_path in project_path.rglob(f"*{ext}"):
+            # Verificar si está en carpeta ignorada
+            if any(ignored in file_path.parts for ignored in ignore_dirs):
+                continue
+
+            file_info = get_file_info(file_path, language)
+            try:
+                file_info["relative_path"] = str(file_path.relative_to(project_path))
+            except:
+                file_info["relative_path"] = file_path.name
+
+            files_info.append(file_info)
+
+    return files_info
+
+
+def generate_analysis_template(project_name: str, project_path: str, language: str) -> str:
+    """Genera la plantilla inicial del archivo de análisis"""
+    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+
+    return f'''# Análisis Arquitectónico: {project_name}
+Generado: {now}
+Última actualización: {now}
+
+> **"El análisis ES exhaustivo, sistemático y exacto"**
+
+## METADATA (para retomar si se compacta la conversación)
+- **Estado:** FASE_0
+- **Checkpoint actual:** 0
+- **Scope:** {project_path}
+- **Lenguaje:** {language}
+- **Tarea actual:** Iniciando análisis
+- **Siguiente paso:** Ejecutar inventario exhaustivo de archivos
+
+---
+
+## 1. INVENTARIO DE ARCHIVOS (CHECKPOINT 1)
+
+*Pendiente de completar*
+
+---
+
+## 2. MAPA DE FUNCIONALIDADES (CHECKPOINT 2)
+
+*Pendiente de completar*
+
+---
+
+## 3. ANÁLISIS POR NIVELES (CHECKPOINT 3)
+
+*Pendiente de completar*
+
+---
+
+## 4. PROBLEMAS DETECTADOS
+
+*Pendiente de completar*
+
+---
+
+## 5. PLAN DE REFACTORIZACIÓN (CHECKPOINT 4)
+
+*Pendiente de completar*
+
+---
+
+## 6. REGISTRO DE PROGRESO
+
+| Fecha | Hora | Checkpoint | Acción | Resultado |
+|-------|------|------------|--------|-----------|
+| {datetime.now().strftime("%Y-%m-%d")} | {datetime.now().strftime("%H:%M")} | 0 | Inicio análisis | OK |
+
+---
+
+## 7. NOTAS Y DECISIONES
+
+### Decisiones tomadas
+*Ninguna aún*
+
+### Pendientes por clarificar
+*Ninguno aún*
+
+---
+
+## INSTRUCCIONES PARA RETOMAR
+
+Si la conversación se ha compactado, sigue estos pasos:
+
+1. Lee este archivo completo
+2. Identifica el **Estado** y **Checkpoint actual** en METADATA
+3. Lee la **Tarea actual** y **Siguiente paso**
+4. Continúa desde donde se quedó
+5. Actualiza el archivo con el progreso
+
+**IMPORTANTE:** No empieces de cero. Retoma exactamente donde se quedó.
+'''
+
+
+async def architecture_analysis(project_path: str, language: str, project_name: str) -> str:
+    """Inicia el análisis arquitectónico global"""
+
+    path = Path(project_path).expanduser().resolve()
+
+    if not path.exists():
+        return f"Error: El directorio {project_path} no existe"
+
+    # Crear directorio .claude si no existe
+    claude_dir = path / ".claude"
+    claude_dir.mkdir(exist_ok=True)
+
+    # Nombre del archivo de análisis
+    date_str = datetime.now().strftime("%Y%m%d")
+    analysis_filename = f"architecture_analysis_{project_name}_{date_str}.md"
+    analysis_file = claude_dir / analysis_filename
+
+    # Generar plantilla inicial
+    template = generate_analysis_template(project_name, str(path), language)
+    analysis_file.write_text(template, encoding='utf-8')
+
+    # Escanear archivos
+    files_info = scan_project_files(path, language)
+
+    # Actualizar estado
+    ARCHITECTURE_STATE["active"] = True
+    ARCHITECTURE_STATE["analysis_file"] = str(analysis_file)
+    ARCHITECTURE_STATE["checkpoint"] = 0
+    ARCHITECTURE_STATE["phase"] = "FASE_0"
+    ARCHITECTURE_STATE["project_path"] = str(path)
+    ARCHITECTURE_STATE["language"] = language
+
+    # Generar resumen del inventario
+    total_lines = sum(f["lines"] for f in files_info)
+    total_classes = sum(f["classes"] for f in files_info)
+    total_functions = sum(f["functions"] for f in files_info)
+
+    # Agrupar por nivel actual
+    by_level = {}
+    for f in files_info:
+        nivel = f["nivel_actual"]
+        if nivel not in by_level:
+            by_level[nivel] = []
+        by_level[nivel].append(f)
+
+    # Construir tabla de inventario
+    inventory_table = "| # | Archivo | Líneas | Clases | Funciones | Nivel actual | Extends |\n"
+    inventory_table += "|---|---------|--------|--------|-----------|--------------|----------|\n"
+
+    for i, f in enumerate(files_info, 1):
+        inventory_table += f"| {i} | {f['relative_path']} | {f['lines']} | {f['classes']} | {f['functions']} | {f['nivel_actual']} | {f['extends'] or '-'} |\n"
+
+    response = f'''
+╔══════════════════════════════════════════════════════════════════╗
+║  ANÁLISIS ARQUITECTÓNICO INICIADO                                ║
+║  "El análisis ES exhaustivo, sistemático y exacto"               ║
+╚══════════════════════════════════════════════════════════════════╝
+
+📁 PROYECTO: {project_name}
+📂 RUTA: {path}
+🔧 LENGUAJE: {language}
+
+📄 ARCHIVO DE ANÁLISIS CREADO:
+   {analysis_file}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 INVENTARIO INICIAL (FASE 0)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📈 RESUMEN:
+   • Archivos encontrados: {len(files_info)}
+   • Total líneas de código: {total_lines}
+   • Total clases: {total_classes}
+   • Total funciones: {total_functions}
+
+📊 POR NIVEL ACTUAL:
+'''
+
+    for nivel, archivos in sorted(by_level.items()):
+        response += f"   • {nivel}: {len(archivos)} archivos\n"
+
+    response += f'''
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 INVENTARIO DETALLADO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+{inventory_table}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ FASE 0 COMPLETADA
+
+➡️ SIGUIENTES PASOS:
+   1. Usa philosophy_architecture_checkpoint para guardar el inventario (CHECKPOINT 1)
+   2. Analiza las funcionalidades de cada archivo (FASE 2)
+   3. Clasifica cada archivo en su nivel correcto (FASE 3)
+   4. Genera el plan de refactorización (FASE 4)
+
+⚠️ IMPORTANTE:
+   - Guarda checkpoints frecuentemente
+   - Si la conversación se compacta, usa philosophy_architecture_resume
+   - El archivo de análisis está en: {analysis_file}
+'''
+
+    return response
+
+
+async def architecture_resume(analysis_file: str) -> str:
+    """Retoma un análisis arquitectónico desde el archivo"""
+
+    file_path = Path(analysis_file).expanduser().resolve()
+
+    if not file_path.exists():
+        return f"Error: El archivo {analysis_file} no existe"
+
+    content = file_path.read_text(encoding='utf-8')
+
+    # Parsear METADATA
+    estado_match = re.search(r'\*\*Estado:\*\*\s*(\w+)', content)
+    checkpoint_match = re.search(r'\*\*Checkpoint actual:\*\*\s*(\d+)', content)
+    scope_match = re.search(r'\*\*Scope:\*\*\s*(.+)', content)
+    language_match = re.search(r'\*\*Lenguaje:\*\*\s*(\w+)', content)
+    tarea_match = re.search(r'\*\*Tarea actual:\*\*\s*(.+)', content)
+    siguiente_match = re.search(r'\*\*Siguiente paso:\*\*\s*(.+)', content)
+
+    estado = estado_match.group(1) if estado_match else "DESCONOCIDO"
+    checkpoint = int(checkpoint_match.group(1)) if checkpoint_match else 0
+    scope = scope_match.group(1).strip() if scope_match else "DESCONOCIDO"
+    language = language_match.group(1) if language_match else "other"
+    tarea = tarea_match.group(1).strip() if tarea_match else "No especificada"
+    siguiente = siguiente_match.group(1).strip() if siguiente_match else "No especificado"
+
+    # Actualizar estado global
+    ARCHITECTURE_STATE["active"] = True
+    ARCHITECTURE_STATE["analysis_file"] = str(file_path)
+    ARCHITECTURE_STATE["checkpoint"] = checkpoint
+    ARCHITECTURE_STATE["phase"] = estado
+    ARCHITECTURE_STATE["project_path"] = scope
+    ARCHITECTURE_STATE["language"] = language
+
+    # Extraer título del proyecto
+    title_match = re.search(r'^# Análisis Arquitectónico:\s*(.+)$', content, re.MULTILINE)
+    project_name = title_match.group(1) if title_match else "Proyecto"
+
+    response = f'''
+╔══════════════════════════════════════════════════════════════════╗
+║  ANÁLISIS ARQUITECTÓNICO RETOMADO                                ║
+║  "El análisis ES exhaustivo, sistemático y exacto"               ║
+╚══════════════════════════════════════════════════════════════════╝
+
+📁 PROYECTO: {project_name}
+📄 ARCHIVO: {file_path}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 ESTADO RECUPERADO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   • Estado: {estado}
+   • Checkpoint: {checkpoint}
+   • Scope: {scope}
+   • Lenguaje: {language}
+
+📋 TAREA ACTUAL:
+   {tarea}
+
+➡️ SIGUIENTE PASO:
+   {siguiente}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ ESTADO CARGADO CORRECTAMENTE
+
+⚠️ IMPORTANTE:
+   - Continúa desde la TAREA ACTUAL indicada arriba
+   - Lee el archivo completo si necesitas más contexto
+   - No empieces de cero
+'''
+
+    return response
+
+
+async def architecture_checkpoint(
+    analysis_file: str,
+    checkpoint: int,
+    phase: str,
+    current_task: str,
+    next_step: str,
+    data: str
+) -> str:
+    """Guarda un checkpoint en el archivo de análisis"""
+
+    file_path = Path(analysis_file).expanduser().resolve()
+
+    if not file_path.exists():
+        return f"Error: El archivo {analysis_file} no existe"
+
+    content = file_path.read_text(encoding='utf-8')
+    now = datetime.now()
+
+    # Actualizar METADATA
+    content = re.sub(
+        r'\*\*Estado:\*\*\s*\w+',
+        f'**Estado:** {phase}',
+        content
+    )
+    content = re.sub(
+        r'\*\*Checkpoint actual:\*\*\s*\d+',
+        f'**Checkpoint actual:** {checkpoint}',
+        content
+    )
+    content = re.sub(
+        r'\*\*Tarea actual:\*\*\s*.+',
+        f'**Tarea actual:** {current_task}',
+        content
+    )
+    content = re.sub(
+        r'\*\*Siguiente paso:\*\*\s*.+',
+        f'**Siguiente paso:** {next_step}',
+        content
+    )
+    content = re.sub(
+        r'Última actualización:.+',
+        f'Última actualización: {now.strftime("%Y-%m-%d %H:%M")}',
+        content
+    )
+
+    # Actualizar sección según checkpoint
+    section_markers = {
+        1: ("## 1. INVENTARIO DE ARCHIVOS (CHECKPOINT 1)", "## 2. MAPA DE FUNCIONALIDADES"),
+        2: ("## 2. MAPA DE FUNCIONALIDADES (CHECKPOINT 2)", "## 3. ANÁLISIS POR NIVELES"),
+        3: ("## 3. ANÁLISIS POR NIVELES (CHECKPOINT 3)", "## 4. PROBLEMAS DETECTADOS"),
+        4: ("## 5. PLAN DE REFACTORIZACIÓN (CHECKPOINT 4)", "## 6. REGISTRO DE PROGRESO"),
+    }
+
+    if checkpoint in section_markers:
+        start_marker, end_marker = section_markers[checkpoint]
+        start_idx = content.find(start_marker)
+        end_idx = content.find(end_marker)
+
+        if start_idx != -1 and end_idx != -1:
+            new_section = f"{start_marker}\n\n{data}\n\n---\n\n"
+            content = content[:start_idx] + new_section + content[end_idx:]
+
+    # Añadir entrada al registro de progreso
+    progress_marker = "| Fecha | Hora | Checkpoint | Acción | Resultado |"
+    progress_idx = content.find(progress_marker)
+    if progress_idx != -1:
+        # Encontrar el final de la cabecera de la tabla
+        header_end = content.find("\n", progress_idx + len(progress_marker) + 1)
+        if header_end != -1:
+            new_entry = f"\n| {now.strftime('%Y-%m-%d')} | {now.strftime('%H:%M')} | {checkpoint} | {current_task} | OK |"
+            # Insertar después de la última entrada
+            table_end = content.find("\n---", header_end)
+            if table_end != -1:
+                content = content[:table_end] + new_entry + content[table_end:]
+
+    # Guardar archivo actualizado
+    file_path.write_text(content, encoding='utf-8')
+
+    # Actualizar estado global
+    ARCHITECTURE_STATE["checkpoint"] = checkpoint
+    ARCHITECTURE_STATE["phase"] = phase
+
+    response = f'''
+╔══════════════════════════════════════════════════════════════════╗
+║  CHECKPOINT {checkpoint} GUARDADO                                         ║
+╚══════════════════════════════════════════════════════════════════╝
+
+📄 ARCHIVO: {file_path}
+📊 FASE: {phase}
+📋 TAREA COMPLETADA: {current_task}
+
+➡️ SIGUIENTE PASO: {next_step}
+
+✅ DATOS GUARDADOS CORRECTAMENTE
+
+⚠️ Si la conversación se compacta, usa:
+   philosophy_architecture_resume("{analysis_file}")
+'''
+
+    return response
+
+
+async def architecture_status() -> str:
+    """Muestra el estado actual del análisis arquitectónico"""
+
+    if not ARCHITECTURE_STATE["active"]:
+        return '''
+╔══════════════════════════════════════════════════════════════════╗
+║  ESTADO DEL ANÁLISIS ARQUITECTÓNICO                              ║
+╚══════════════════════════════════════════════════════════════════╝
+
+❌ NO HAY ANÁLISIS ACTIVO
+
+Para iniciar un análisis usa:
+   philosophy_architecture_analysis
+
+Para retomar un análisis existente usa:
+   philosophy_architecture_resume
+'''
+
+    return f'''
+╔══════════════════════════════════════════════════════════════════╗
+║  ESTADO DEL ANÁLISIS ARQUITECTÓNICO                              ║
+╚══════════════════════════════════════════════════════════════════╝
+
+✅ ANÁLISIS ACTIVO
+
+📄 Archivo: {ARCHITECTURE_STATE["analysis_file"]}
+📊 Checkpoint: {ARCHITECTURE_STATE["checkpoint"]}
+🔄 Fase: {ARCHITECTURE_STATE["phase"]}
+📁 Proyecto: {ARCHITECTURE_STATE["project_path"]}
+🔧 Lenguaje: {ARCHITECTURE_STATE["language"]}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+FASES DEL ANÁLISIS:
+   {"✅" if ARCHITECTURE_STATE["checkpoint"] >= 1 else "⬜"} FASE 1: Inventario de archivos
+   {"✅" if ARCHITECTURE_STATE["checkpoint"] >= 2 else "⬜"} FASE 2: Mapa de funcionalidades
+   {"✅" if ARCHITECTURE_STATE["checkpoint"] >= 3 else "⬜"} FASE 3: Análisis por niveles
+   {"✅" if ARCHITECTURE_STATE["checkpoint"] >= 4 else "⬜"} FASE 4: Plan de refactorización
+   {"🔄" if ARCHITECTURE_STATE["phase"] == "EJECUTANDO" else "⬜"} EJECUTANDO: Implementación del plan
+'''
 
 
 # ============================================================
