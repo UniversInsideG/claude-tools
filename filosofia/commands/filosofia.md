@@ -1,27 +1,17 @@
 ---
-description: Activa la filosofía de programación modular usando MCP (8 pasos)
+description: Activa la filosofía de programación modular usando MCP (9 pasos)
 ---
 
-INSTRUCCIÓN OBLIGATORIA: Antes de escribir o modificar cualquier código, DEBES seguir los 8 pasos usando las herramientas del MCP philosophy. El MCP bloquea si saltas pasos.
+INSTRUCCIÓN OBLIGATORIA: Antes de escribir cualquier código, DEBES seguir los 9 pasos usando las herramientas del MCP philosophy. El MCP bloquea si saltas pasos.
 
 > **"Verificar ANTES de escribir, no DESPUÉS de fallar"**
+> **"Documentar DESPUÉS de validar"**
 
-## ⚠️ APLICA A TODO (SIN EXCEPCIONES):
-
-| Tipo | ¿Usar flujo? | Por qué |
-|------|--------------|---------|
-| Código nuevo | ✅ SÍ | Diseño correcto desde inicio |
-| Bug fix | ✅ SÍ | Un bug es señal de problema estructural |
-| Modificación | ✅ SÍ | Verificar que no rompe arquitectura |
-| Refactor | ✅ SÍ | Oportunidad de mejorar |
-
-**NUNCA racionalizar para saltarse el flujo.** "Es solo un fix pequeño" es una excusa que acumula deuda técnica.
-
-## FLUJO OBLIGATORIO (8 PASOS):
+## FLUJO OBLIGATORIO (9 PASOS):
 
 ### PASO 1: `philosophy_q1_responsabilidad`
 Pregunta: ¿Esta pieza hace UNA sola cosa?
-- Describe lo que vas a crear/modificar
+- Describe lo que vas a crear
 - Define la responsabilidad única
 - Indica el lenguaje (godot/python/web)
 - Indica el tipo de cambio (nuevo/modificacion/bugfix/refactor)
@@ -34,7 +24,8 @@ Pregunta: ¿Puedo reutilizar esto en otro lugar?
 
 ### PASO 3: `philosophy_q3_buscar`
 Pregunta: ¿Existe algo similar que pueda extender/heredar?
-- Busca en el proyecto
+- Busca en código fuente Y documentación (.claude/, docs/)
+- **PRIORIDAD:** Si hay documentación relevante, léela ANTES de crear código
 - Evalúa los resultados
 - Decide: reutilizar, extender o crear nuevo
 
@@ -61,6 +52,27 @@ Siguiendo el diseño de los pasos anteriores y usando las firmas verificadas
 
 ### PASO 8: `philosophy_validate`
 Valida el código escrito
+
+### PASO 9: Documentar cambios
+Después de validar, actualiza la documentación:
+- **CHANGELOG.md**: Registra qué se hizo y por qué
+- **Ubicación**: `docs/CHANGELOG.md` del proyecto
+- **Formato**: Fecha, categoría, descripción, **qué reemplaza**
+
+```markdown
+## [FECHA] - Título breve
+
+### Añadido/Corregido/Cambiado
+- **Componente**: Descripción del cambio
+- **Motivo**: Por qué se hizo
+
+### Reemplaza/Obsoleta (si aplica)
+- `archivo_viejo.gd` → `archivo_nuevo.gd`
+- Documentación anterior: `docs/PLAN_VIEJO.md`
+```
+
+> Si el cambio es trivial (typo, formato), la documentación es opcional.
+> Si el cambio reemplaza algo, **SIEMPRE documentar qué queda obsoleto**.
 
 ## ARQUITECTURA (5 NIVELES = Atomic Design):
 ```
@@ -89,3 +101,5 @@ $ARGUMENTS
 
 ## EMPIEZA AHORA:
 Usa `philosophy_q1_responsabilidad` para comenzar el paso 1.
+
+**Flujo completo:** q1 → q2 → q3 → q4 → q5 → q6 → código → validate → **documentar**

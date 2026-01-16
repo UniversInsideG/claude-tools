@@ -1,14 +1,14 @@
-# Instalador de Philosophy MCP para Windows
+# Instalador de Philosophy MCP para Windows (v1.5.0)
 # Ejecutar como: powershell -ExecutionPolicy Bypass -File install-windows.ps1
 
-Write-Host "=== Instalador Philosophy MCP para Windows ===" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "=== Instalador Philosophy MCP v1.5.0 ===" -ForegroundColor Cyan
 Write-Host ""
 
 # Verificar Python
 Write-Host "1. Verificando Python..." -ForegroundColor Yellow
 $pythonCmd = $null
 
-# Probar diferentes comandos de Python
 $pythonOptions = @("python", "py", "python3")
 foreach ($cmd in $pythonOptions) {
     try {
@@ -44,9 +44,10 @@ try {
     exit 1
 }
 
-# Obtener ruta del script
+# Obtener rutas
 $scriptPath = Split-Path -Parent $MyInvocation.MyCommand.Path
 $serverPath = Join-Path $scriptPath "server.py"
+$parentPath = Split-Path -Parent $scriptPath
 
 # Verificar que server.py existe
 if (-not (Test-Path $serverPath)) {
@@ -64,7 +65,7 @@ if (-not (Test-Path $claudeDir)) {
 
 # Crear/actualizar .mcp.json
 Write-Host ""
-Write-Host "3. Configurando Claude Code..." -ForegroundColor Yellow
+Write-Host "3. Configurando MCP Server..." -ForegroundColor Yellow
 $mcpJsonPath = Join-Path $claudeDir ".mcp.json"
 $serverPathEscaped = $serverPath -replace '\\', '\\\\'
 
@@ -77,7 +78,6 @@ $mcpConfig = @"
 }
 "@
 
-# Si ya existe, hacer backup
 if (Test-Path $mcpJsonPath) {
     $backup = "$mcpJsonPath.backup"
     Copy-Item $mcpJsonPath $backup
@@ -85,31 +85,64 @@ if (Test-Path $mcpJsonPath) {
 }
 
 $mcpConfig | Out-File -FilePath $mcpJsonPath -Encoding UTF8
-Write-Host "   Configuracion guardada en: $mcpJsonPath" -ForegroundColor Green
+Write-Host "   Configuracion MCP guardada" -ForegroundColor Green
 
-# Copiar comando /filosofia
+# Crear directorio commands
 Write-Host ""
-Write-Host "4. Instalando comando /filosofia..." -ForegroundColor Yellow
+Write-Host "4. Instalando comandos /filosofia y /arquitectura..." -ForegroundColor Yellow
 $commandsDir = Join-Path $claudeDir "commands"
 if (-not (Test-Path $commandsDir)) {
     New-Item -ItemType Directory -Path $commandsDir | Out-Null
 }
 
-$filosofiaSource = Join-Path (Split-Path -Parent $scriptPath) "filosofia\commands\filosofia.md"
+# Instalar /filosofia
+$filosofiaSource = Join-Path $parentPath "filosofia\commands\filosofia.md"
 if (Test-Path $filosofiaSource) {
-    Copy-Item $filosofiaSource (Join-Path $commandsDir "filosofia.md")
-    Write-Host "   Comando /filosofia instalado" -ForegroundColor Green
+    Copy-Item $filosofiaSource (Join-Path $commandsDir "filosofia.md") -Force
+    Write-Host "   /filosofia instalado (9 pasos)" -ForegroundColor Green
 } else {
-    Write-Host "   Comando /filosofia no encontrado (opcional)" -ForegroundColor Gray
+    Write-Host "   /filosofia no encontrado" -ForegroundColor Yellow
+}
+
+# Instalar /arquitectura
+$arquitecturaSource = Join-Path $parentPath "filosofia\commands\arquitectura.md"
+if (Test-Path $arquitecturaSource) {
+    Copy-Item $arquitecturaSource (Join-Path $commandsDir "arquitectura.md") -Force
+    Write-Host "   /arquitectura instalado" -ForegroundColor Green
+} else {
+    Write-Host "   /arquitectura no encontrado" -ForegroundColor Yellow
+}
+
+# Copiar CLAUDE.md con instrucciones
+Write-Host ""
+Write-Host "5. Instalando instrucciones globales..." -ForegroundColor Yellow
+$claudeMdSource = Join-Path $parentPath "filosofia\CLAUDE.md"
+if (Test-Path $claudeMdSource) {
+    Copy-Item $claudeMdSource (Join-Path $claudeDir "CLAUDE.md") -Force
+    Write-Host "   CLAUDE.md instalado" -ForegroundColor Green
+} else {
+    Write-Host "   CLAUDE.md no encontrado (opcional)" -ForegroundColor Gray
 }
 
 # Finalizado
 Write-Host ""
 Write-Host "=== INSTALACION COMPLETADA ===" -ForegroundColor Green
 Write-Host ""
-Write-Host "Proximos pasos:" -ForegroundColor Cyan
-Write-Host "1. Reinicia Claude Code (cierra y abre de nuevo)"
-Write-Host "2. Ejecuta /mcp para verificar que 'philosophy' aparece"
-Write-Host "3. Usa /filosofia [tarea] para empezar"
+Write-Host "Que se instalo:" -ForegroundColor Cyan
+Write-Host "  - MCP Server: philosophy (server.py)"
+Write-Host "  - Comando: /filosofia (flujo de 9 pasos)"
+Write-Host "  - Comando: /arquitectura (analisis global)"
+Write-Host "  - Instrucciones: CLAUDE.md"
+Write-Host ""
+Write-Host "Novedades v1.5.0:" -ForegroundColor Cyan
+Write-Host "  - Paso 9: Documentar cambios despues de validar"
+Write-Host "  - Jerarquizacion de documentacion en paso 3"
+Write-Host "  - Q5 valida comportamiento, no solo nomenclatura"
+Write-Host "  - Busqueda de analisis existentes en disco"
+Write-Host ""
+Write-Host "Proximos pasos:" -ForegroundColor Yellow
+Write-Host "  1. Reinicia Claude Code"
+Write-Host "  2. Ejecuta /mcp para verificar 'philosophy'"
+Write-Host "  3. Usa /filosofia [tarea] o /arquitectura [proyecto]"
 Write-Host ""
 Read-Host "Presiona Enter para salir"
