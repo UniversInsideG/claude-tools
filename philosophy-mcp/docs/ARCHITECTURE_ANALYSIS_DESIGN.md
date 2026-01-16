@@ -367,8 +367,10 @@ philosophy_architecture_analysis(
     project_name="mi-proyecto"
 )
 
-# Ver estado actual
-philosophy_architecture_status()
+# Ver estado actual (busca en memoria Y en disco)
+philosophy_architecture_status(
+    project_path="/ruta/al/proyecto"  # Opcional, mejora la búsqueda en disco
+)
 
 # Guardar checkpoint
 philosophy_architecture_checkpoint(
@@ -385,6 +387,30 @@ philosophy_architecture_resume(
     analysis_file="/ruta/.claude/architecture_analysis_xxx.md"
 )
 ```
+
+## 10. BÚSQUEDA DE ANÁLISIS EXISTENTES
+
+`philosophy_architecture_status` busca análisis de dos formas:
+
+1. **En memoria**: Si hay un análisis activo en la sesión actual
+2. **En disco**: Busca recursivamente en todos los directorios `.claude/` del proyecto
+
+### Comportamiento de búsqueda en disco
+
+- Usa `rglob(".claude")` para encontrar todos los directorios `.claude` en cualquier nivel
+- Busca archivos que coincidan con `architecture_analysis_*.md`
+- Extrae metadata: estado, checkpoint, scope
+- Ordena por fecha de modificación (más reciente primero)
+- Muestra hasta 5 análisis encontrados
+
+### Información mostrada
+
+Para cada análisis encontrado:
+- **Nombre**: Extraído del título del archivo
+- **Archivo**: Ruta completa
+- **Scope**: Directorio que se estaba analizando
+- **Estado**: Fase actual y checkpoint
+- **Fases**: Indicador visual de progreso (✅⬜⬜⬜)
 
 ---
 

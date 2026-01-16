@@ -1,8 +1,10 @@
 ---
-description: Activa la filosofía de programación modular usando MCP (7 pasos)
+description: Activa la filosofía de programación modular usando MCP (8 pasos)
 ---
 
-INSTRUCCIÓN OBLIGATORIA: Antes de escribir o modificar cualquier código, DEBES seguir los 7 pasos usando las herramientas del MCP philosophy. El MCP bloquea si saltas pasos.
+INSTRUCCIÓN OBLIGATORIA: Antes de escribir o modificar cualquier código, DEBES seguir los 8 pasos usando las herramientas del MCP philosophy. El MCP bloquea si saltas pasos.
+
+> **"Verificar ANTES de escribir, no DESPUÉS de fallar"**
 
 ## ⚠️ APLICA A TODO (SIN EXCEPCIONES):
 
@@ -15,7 +17,7 @@ INSTRUCCIÓN OBLIGATORIA: Antes de escribir o modificar cualquier código, DEBES
 
 **NUNCA racionalizar para saltarse el flujo.** "Es solo un fix pequeño" es una excusa que acumula deuda técnica.
 
-## FLUJO OBLIGATORIO (7 PASOS):
+## FLUJO OBLIGATORIO (8 PASOS):
 
 ### PASO 1: `philosophy_q1_responsabilidad`
 Pregunta: ¿Esta pieza hace UNA sola cosa?
@@ -48,10 +50,16 @@ Pregunta: ¿Está en el nivel correcto de la jerarquía?
 - Nombre de archivo (nomenclatura correcta)
 - Justifica el nivel
 
-### PASO 6: Escribir código
-Siguiendo el diseño de los pasos anteriores
+### PASO 6: `philosophy_q6_verificar_dependencias`
+Pregunta: ¿Las dependencias externas existen y coinciden?
+- Lista TODAS las funciones externas que vas a llamar
+- El MCP verifica: archivo existe, función existe, firma coincide
+- Si hay discrepancias, NO puedes continuar
 
-### PASO 7: `philosophy_validate`
+### PASO 7: Escribir código
+Siguiendo el diseño de los pasos anteriores y usando las firmas verificadas
+
+### PASO 8: `philosophy_validate`
 Valida el código escrito
 
 ## ARQUITECTURA (5 NIVELES = Atomic Design):

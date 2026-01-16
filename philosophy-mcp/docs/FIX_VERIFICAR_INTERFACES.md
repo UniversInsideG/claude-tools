@@ -1,7 +1,7 @@
 # Fix: Verificación de Interfaces antes de escribir código
 
 **Fecha:** 2026-01-14
-**Estado:** PROBLEMA IDENTIFICADO - Pendiente implementación
+**Estado:** IMPLEMENTADO - Pendiente probar
 
 ---
 
@@ -240,20 +240,20 @@ q1 → q2 → q3 → q4 → q5 → q5b → [escribir] → q7
 ## PRÓXIMOS PASOS
 
 ### Para /filosofia
-1. ⬜ Implementar `philosophy_q6_verificar_dependencias` en server.py
-2. ⬜ Renumerar: q6→q7 (escribir), q7→q8 (validate)
-3. ⬜ Actualizar skill `/filosofia` con el nuevo paso
+1. ✅ Implementar `philosophy_q6_verificar_dependencias` en server.py
+2. ✅ Renumerar: q6→q7 (escribir), q7→q8 (validate)
+3. ✅ Actualizar skill `/filosofia` con el nuevo paso
 4. ⬜ Probar con caso real
 
 ### Para /arquitectura
-5. ⬜ Actualizar FASE 1: añadir extracción de firmas públicas
-6. ⬜ Actualizar FASE 2: verificar firmas al documentar funcionalidades
-7. ⬜ Actualizar FASE 4: cada tarea incluye dependencias verificadas
-8. ⬜ Actualizar skill `/arquitectura`
+5. ✅ Actualizar FASE 1: añadir extracción de firmas públicas
+6. ✅ Actualizar FASE 2: verificar firmas al documentar funcionalidades
+7. ✅ Actualizar FASE 4: cada tarea incluye dependencias verificadas
+8. ✅ Actualizar skill `/arquitectura`
 9. ⬜ Probar con caso real
 
 ### General
-10. ⬜ Documentar en CLAUDE.md
+10. ✅ Documentar en CLAUDE.md
 
 ---
 

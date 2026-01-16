@@ -3,9 +3,10 @@
 MCP Server: Philosophy - UniversInside
 =======================================
 Servidor MCP que fuerza la filosofía de programación modular.
-Implementa 7 pasos obligatorios con 6 herramientas.
+Implementa 8 pasos obligatorios con 7 herramientas.
 
 "Máximo impacto, menor esfuerzo — a largo plazo"
+"Verificar ANTES de escribir, no DESPUÉS de fallar"
 """
 
 import re
@@ -31,14 +32,16 @@ SESSION_STATE = {
     "step_3": False,  # Q3: Buscar similar
     "step_4": False,  # Q4: Herencia
     "step_5": False,  # Q5: Nivel
-    # step_6 es escribir código (no es herramienta)
-    # step_7 es validar
+    "step_6": False,  # Q6: Verificar dependencias
+    # step_7 es escribir código (no es herramienta)
+    # step_8 es validar
     "current_description": None,
     "current_level": None,
     "current_filename": None,
     "current_language": None,
     "current_change_type": None,  # nuevo/modificacion/bugfix/refactor
     "search_results": None,
+    "verified_dependencies": None,  # Dependencias verificadas en q6
 }
 
 def reset_state():
@@ -48,12 +51,14 @@ def reset_state():
     SESSION_STATE["step_3"] = False
     SESSION_STATE["step_4"] = False
     SESSION_STATE["step_5"] = False
+    SESSION_STATE["step_6"] = False
     SESSION_STATE["current_description"] = None
     SESSION_STATE["current_level"] = None
     SESSION_STATE["current_filename"] = None
     SESSION_STATE["current_language"] = None
     SESSION_STATE["current_change_type"] = None
     SESSION_STATE["search_results"] = None
+    SESSION_STATE["verified_dependencies"] = None
 
 
 # ============================================================
@@ -272,12 +277,63 @@ Requiere: Paso 4 completado.""",
                 "required": ["nivel", "filename", "justificacion_nivel"]
             }
         ),
-        # Paso 7 (después de escribir código)
+        # Paso 6 - NUEVO: Verificar dependencias
+        Tool(
+            name="philosophy_q6_verificar_dependencias",
+            description="""PASO 6 (OBLIGATORIO): Verifica las dependencias externas ANTES de escribir código.
+
+"Verificar ANTES de escribir, no DESPUÉS de fallar"
+
+Lista TODAS las funciones externas que vas a llamar y verifica:
+1. Que el archivo existe
+2. Que la función existe
+3. Que la firma (parámetros, tipos) coincide
+
+Si hay discrepancias, NO puedes continuar hasta resolverlas.
+Requiere: Paso 5 completado.""",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "project_path": {
+                        "type": "string",
+                        "description": "Ruta del proyecto"
+                    },
+                    "dependencies": {
+                        "type": "array",
+                        "description": "Lista de dependencias a verificar",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "file": {
+                                    "type": "string",
+                                    "description": "Ruta del archivo (relativa al proyecto)"
+                                },
+                                "function": {
+                                    "type": "string",
+                                    "description": "Nombre de la función"
+                                },
+                                "expected_params": {
+                                    "type": "string",
+                                    "description": "Parámetros esperados, ej: 'data: Dictionary, flag: bool'"
+                                },
+                                "expected_return": {
+                                    "type": "string",
+                                    "description": "Tipo de retorno esperado, ej: 'void', 'bool', 'Dictionary'"
+                                }
+                            },
+                            "required": ["file", "function"]
+                        }
+                    }
+                },
+                "required": ["project_path", "dependencies"]
+            }
+        ),
+        # Paso 8 (después de escribir código)
         Tool(
             name="philosophy_validate",
-            description="""PASO 7 (OBLIGATORIO): Valida el código escrito.
+            description="""PASO 8 (OBLIGATORIO): Valida el código escrito.
 Detecta code smells, duplicación, múltiples clases.
-Requiere: Paso 5 completado + código escrito.""",
+Requiere: Paso 6 completado + código escrito.""",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -410,14 +466,21 @@ Usa esto para asegurar que no se pierde información.""",
             name="philosophy_architecture_status",
             description="""VER ESTADO del análisis arquitectónico actual.
 
+Busca tanto en memoria como en disco para encontrar análisis existentes.
+
 Muestra:
-- Archivo de análisis activo
-- Checkpoint actual
-- Fase actual
+- Archivo de análisis activo (si hay uno en memoria)
+- Análisis previos encontrados en disco
+- Checkpoint y fase actual
 - Progreso general""",
             inputSchema={
                 "type": "object",
-                "properties": {},
+                "properties": {
+                    "project_path": {
+                        "type": "string",
+                        "description": "Ruta del proyecto donde buscar análisis existentes (opcional, mejora la búsqueda)"
+                    }
+                },
                 "required": []
             }
         )
@@ -464,6 +527,12 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             arguments["justificacion_nivel"]
         )
 
+    elif name == "philosophy_q6_verificar_dependencias":
+        result = await step6_verificar_dependencias(
+            arguments["project_path"],
+            arguments["dependencies"]
+        )
+
     elif name == "philosophy_validate":
         result = await step7_validate(
             arguments["code"],
@@ -497,7 +566,9 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         )
 
     elif name == "philosophy_architecture_status":
-        result = await architecture_status()
+        result = await architecture_status(
+            arguments.get("project_path")
+        )
 
     else:
         result = f"Error: Herramienta '{name}' no encontrada"
@@ -597,8 +668,372 @@ FLUJO OBLIGATORIO:
     return response
 
 
+# ============================================================
+# SISTEMA DE JERARQUIZACIÓN DE DOCUMENTACIÓN
+# ============================================================
+
+# Tipos de documentos y su peso base
+DOC_TYPE_WEIGHTS = {
+    "guia": 100,        # Guías para desarrolladores - máxima prioridad
+    "instrucciones": 95,
+    "arquitectura": 90,
+    "analisis": 85,
+    "plan": 70,         # Planes bajan si están completados
+    "solucion": 80,
+    "fix": 75,
+    "changelog": 40,    # Changelogs - prioridad baja (histórico)
+    "deuda": 60,
+    "indice": 20,       # Índices - muy baja prioridad
+    "readme": 30,
+    "otro": 50
+}
+
+# Tipos que permanecen vigentes aunque estén "completados/implementados"
+DOC_TYPES_ALWAYS_VALID = {"guia", "instrucciones", "arquitectura"}
+
+# Tipos que pierden relevancia cuando están "completados"
+DOC_TYPES_EXPIRE_ON_COMPLETE = {"plan", "analisis", "fix", "solucion"}
+
+
+def extract_doc_topic(filename: str, title: str) -> str:
+    """Extrae el topic/tema principal de un documento para agrupar relacionados.
+
+    Ejemplo: 'GUIA_DESARROLLO_MASTER_OBSERVER.md' -> 'master_observer'
+             'architecture_analysis_master_observer_refactor_20260116.md' -> 'master_observer_refactor'
+    """
+    # Limpiar nombre
+    name = filename.lower().replace('.md', '')
+
+    # Quitar prefijos comunes
+    prefixes_to_remove = [
+        'guia_desarrollo_', 'guia_', 'guide_',
+        'plan_refactorizacion_', 'plan_',
+        'architecture_analysis_', 'analisis_',
+        'solucion_', 'fix_', 'deuda_tecnica_'
+    ]
+    for prefix in prefixes_to_remove:
+        if name.startswith(prefix):
+            name = name[len(prefix):]
+            break
+
+    # Quitar sufijos de fecha (ej: _20260116)
+    name = re.sub(r'_\d{8}$', '', name)
+
+    # Si el título es más específico, usarlo
+    title_lower = title.lower()
+    if 'master' in title_lower and 'observer' in title_lower:
+        return 'master_observer'
+
+    return name if name else 'general'
+
+
+def extract_doc_metadata(content: str, filename: str) -> dict:
+    """Extrae metadatos de un documento markdown."""
+    metadata = {
+        "date": None,
+        "status": None,  # None = no especificado (diferente de "desconocido")
+        "doc_type": "otro",
+    }
+
+    content_lower = content.lower()
+    filename_lower = filename.lower()
+
+    # 1. EXTRAER FECHA
+    date_patterns = [
+        r'última actualización[:\s]*(\d{4}-\d{2}-\d{2})',
+        r'actualizado[:\s]*(\d{4}-\d{2}-\d{2})',
+        r'fecha[:\s]*(\d{4}-\d{2}-\d{2})',
+        r'generado[:\s]*(\d{4}-\d{2}-\d{2})',
+        r'\*\*fecha:\*\*\s*(\d{4}-\d{2}-\d{2})',
+        r'\*\*última actualización:\*\*\s*(\d{4}-\d{2}-\d{2})',
+    ]
+
+    for pattern in date_patterns:
+        match = re.search(pattern, content_lower)
+        if match:
+            try:
+                metadata["date"] = datetime.strptime(match.group(1), "%Y-%m-%d")
+                break
+            except:
+                pass
+
+    # Fecha en nombre de archivo (ej: _20260116)
+    if not metadata["date"]:
+        date_in_name = re.search(r'_(\d{8})\.md$', filename)
+        if date_in_name:
+            try:
+                metadata["date"] = datetime.strptime(date_in_name.group(1), "%Y%m%d")
+            except:
+                pass
+
+    # 2. EXTRAER ESTADO (solo si está explícito)
+    status_patterns = [
+        r'\*\*estado:\*\*\s*(\w+)',
+        r'estado:\s*(\w+)',
+    ]
+
+    for pattern in status_patterns:
+        match = re.search(pattern, content_lower)
+        if match:
+            status_raw = match.group(1).lower()
+            # Normalizar
+            if "activo" in status_raw or "vigente" in status_raw:
+                metadata["status"] = "activo"
+            elif "implementado" in status_raw:
+                metadata["status"] = "implementado"
+            elif "completado" in status_raw or "terminado" in status_raw:
+                metadata["status"] = "completado"
+            elif "progreso" in status_raw or "fase" in status_raw:
+                metadata["status"] = "en_progreso"
+            elif "pendiente" in status_raw:
+                metadata["status"] = "pendiente"
+            elif "obsoleto" in status_raw or "deprecated" in status_raw:
+                metadata["status"] = "obsoleto"
+            break
+
+    # 3. EXTRAER TIPO DE DOCUMENTO
+    if "guia" in filename_lower or "guide" in filename_lower:
+        metadata["doc_type"] = "guia"
+    elif "instrucciones" in filename_lower:
+        metadata["doc_type"] = "instrucciones"
+    elif "arquitectura" in filename_lower and "analisis" not in filename_lower:
+        metadata["doc_type"] = "arquitectura"
+    elif "architecture_analysis" in filename_lower or "analisis" in filename_lower:
+        metadata["doc_type"] = "analisis"
+    elif "plan" in filename_lower:
+        metadata["doc_type"] = "plan"
+    elif "solucion" in filename_lower:
+        metadata["doc_type"] = "solucion"
+    elif "fix" in filename_lower:
+        metadata["doc_type"] = "fix"
+    elif "changelog" in filename_lower:
+        metadata["doc_type"] = "changelog"
+    elif "deuda" in filename_lower:
+        metadata["doc_type"] = "deuda"
+    elif "indice" in filename_lower:
+        metadata["doc_type"] = "indice"
+
+    return metadata
+
+
+def calculate_doc_relevance(doc: dict, search_term: str, content: str, topic_docs: dict) -> dict:
+    """Calcula relevancia combinando: tipo + fecha + topic duplicado + frecuencia.
+
+    Retorna dict con score y razones.
+    """
+    result = {
+        "score": 0.0,
+        "priority": "NORMAL",
+        "age_label": "⚪ Sin fecha",
+        "warnings": [],
+        "is_superseded": False
+    }
+
+    search_lower = search_term.lower()
+    doc_type = doc.get("doc_type", "otro")
+    status = doc.get("status")  # None si no especificado
+    doc_date = doc.get("date")
+    topic = doc.get("topic", "general")
+
+    # 1. PESO BASE POR TIPO
+    base_score = DOC_TYPE_WEIGHTS.get(doc_type, 50)
+
+    # 2. AJUSTE POR ESTADO (solo si está especificado)
+    if status:
+        if status == "obsoleto":
+            base_score *= 0.1
+            result["warnings"].append("⚠️ Marcado como obsoleto")
+        elif status == "completado" and doc_type in DOC_TYPES_EXPIRE_ON_COMPLETE:
+            base_score *= 0.5
+            result["warnings"].append("Plan/análisis completado")
+        elif status == "en_progreso":
+            base_score *= 1.1  # Bonus por estar activo
+        elif status == "activo":
+            base_score *= 1.2
+
+    # 3. AJUSTE POR ANTIGÜEDAD
+    if doc_date:
+        days_old = (datetime.now() - doc_date).days
+
+        if days_old <= 7:
+            base_score *= 1.4
+            result["age_label"] = "🟢 Esta semana"
+        elif days_old <= 30:
+            base_score *= 1.2
+            result["age_label"] = "🟢 Este mes"
+        elif days_old <= 90:
+            base_score *= 1.0
+            result["age_label"] = "🟡 Últimos 3 meses"
+        elif days_old <= 180:
+            base_score *= 0.7
+            result["age_label"] = "🟠 3-6 meses"
+            if doc_type not in DOC_TYPES_ALWAYS_VALID:
+                result["warnings"].append("Documento de hace 3-6 meses")
+        else:
+            base_score *= 0.4
+            result["age_label"] = "🔴 +6 meses"
+            if doc_type not in DOC_TYPES_ALWAYS_VALID:
+                result["warnings"].append("Documento antiguo (+6 meses)")
+
+    # 4. DETECCIÓN DE TOPIC DUPLICADO (superseded)
+    if topic in topic_docs:
+        same_topic_docs = topic_docs[topic]
+        if len(same_topic_docs) > 1:
+            # Ordenar por fecha (más reciente primero)
+            sorted_by_date = sorted(
+                same_topic_docs,
+                key=lambda x: x.get("date") or datetime.min,
+                reverse=True
+            )
+
+            # Si este doc NO es el más reciente del topic
+            if doc_date and sorted_by_date[0].get("date"):
+                newest_date = sorted_by_date[0].get("date")
+                if doc_date < newest_date and doc["path"] != sorted_by_date[0]["path"]:
+                    # Hay uno más nuevo
+                    days_diff = (newest_date - doc_date).days
+                    if days_diff > 7:  # Solo si hay diferencia significativa
+                        result["is_superseded"] = True
+                        base_score *= 0.3
+                        result["warnings"].append(f"Hay versión más reciente ({days_diff} días después)")
+
+    # 5. BONUS POR FRECUENCIA DEL TÉRMINO
+    term_count = content.lower().count(search_lower)
+    if term_count >= 10:
+        base_score += 15
+    elif term_count >= 5:
+        base_score += 8
+
+    # 6. BONUS SI APARECE EN TÍTULO
+    if search_lower in doc.get("title", "").lower():
+        base_score += 25
+
+    # 7. BONUS POR SECCIONES CLAVE
+    key_sections = ["instrucciones", "guía", "cómo", "pasos", "checklist", "para desarrolladores"]
+    for section in doc.get("relevant_sections", []):
+        if any(key in section.lower() for key in key_sections):
+            base_score += 20
+            break
+
+    # Determinar prioridad
+    result["score"] = round(base_score, 1)
+    if result["score"] >= 100:
+        result["priority"] = "🔥 ALTA"
+    elif result["score"] >= 60:
+        result["priority"] = "📌 MEDIA"
+    else:
+        result["priority"] = "📎 BAJA"
+
+    return result
+
+
+def search_project_documentation(project_path: Path, search_term: str) -> dict:
+    """Busca documentación relevante con jerarquización inteligente.
+
+    Retorna dict con:
+    - primary: Lista de docs principales (más relevantes, no superseded)
+    - secondary: Lista de docs secundarios (superseded o antiguos)
+    - topics: Dict de topics encontrados
+    """
+    all_docs = []
+    search_lower = search_term.lower()
+
+    # Carpetas donde buscar
+    doc_locations = [
+        project_path / ".claude",
+        project_path / "docs",
+    ]
+
+    for claude_dir in project_path.rglob(".claude"):
+        if claude_dir.is_dir() and claude_dir not in doc_locations:
+            doc_locations.append(claude_dir)
+
+    # Primera pasada: recolectar todos los docs
+    for doc_dir in doc_locations:
+        if not doc_dir.exists():
+            continue
+
+        for md_file in doc_dir.glob("*.md"):
+            try:
+                content = md_file.read_text(encoding='utf-8', errors='ignore')
+
+                if search_lower not in content.lower():
+                    continue
+
+                # Extraer info básica
+                title_match = re.search(r'^#\s+(.+)$', content, re.MULTILINE)
+                title = title_match.group(1) if title_match else md_file.stem
+
+                relevant_sections = []
+                current_section = None
+                for line in content.split('\n'):
+                    if line.startswith('#'):
+                        current_section = line.lstrip('#').strip()
+                    if search_lower in line.lower() and current_section:
+                        if current_section not in relevant_sections:
+                            relevant_sections.append(current_section)
+
+                metadata = extract_doc_metadata(content, md_file.name)
+                topic = extract_doc_topic(md_file.name, title)
+
+                doc_info = {
+                    "path": str(md_file),
+                    "relative_path": str(md_file.relative_to(project_path)) if md_file.is_relative_to(project_path) else md_file.name,
+                    "title": title,
+                    "relevant_sections": relevant_sections[:5],
+                    "doc_type": metadata["doc_type"],
+                    "status": metadata["status"],
+                    "date": metadata["date"],
+                    "topic": topic,
+                    "content": content  # Guardar para calcular score
+                }
+
+                all_docs.append(doc_info)
+
+            except Exception:
+                pass
+
+    # Agrupar por topic
+    topic_docs = {}
+    for doc in all_docs:
+        topic = doc["topic"]
+        if topic not in topic_docs:
+            topic_docs[topic] = []
+        topic_docs[topic].append(doc)
+
+    # Segunda pasada: calcular relevancia con contexto de topics
+    for doc in all_docs:
+        relevance = calculate_doc_relevance(doc, search_term, doc["content"], topic_docs)
+        doc["score"] = relevance["score"]
+        doc["priority"] = relevance["priority"]
+        doc["age_label"] = relevance["age_label"]
+        doc["warnings"] = relevance["warnings"]
+        doc["is_superseded"] = relevance["is_superseded"]
+        del doc["content"]  # Limpiar
+
+    # Separar primary y secondary
+    primary = [d for d in all_docs if not d["is_superseded"] and d["score"] >= 30]
+    secondary = [d for d in all_docs if d["is_superseded"] or d["score"] < 30]
+
+    # Ordenar por score
+    primary.sort(key=lambda x: x["score"], reverse=True)
+    secondary.sort(key=lambda x: x["score"], reverse=True)
+
+    return {
+        "primary": primary,
+        "secondary": secondary,
+        "topics": list(topic_docs.keys()),
+        "total": len(all_docs)
+    }
+
+
 async def step3_buscar(search_term: str, project_path: str, content_pattern: str = None) -> str:
-    """PASO 3: ¿Existe algo similar?"""
+    """PASO 3: ¿Existe algo similar?
+
+    Busca en:
+    1. Código fuente (por nombre y contenido)
+    2. Documentación del proyecto (.claude/, docs/)
+    """
 
     # Verificar paso anterior
     if not SESSION_STATE["step_2"]:
@@ -624,7 +1059,7 @@ FLUJO OBLIGATORIO:
     if not path.exists():
         return f"Error: El directorio {project_path} no existe"
 
-    # Buscar por nombre
+    # 1. BUSCAR EN CÓDIGO FUENTE
     found_by_name = []
     search_lower = search_term.lower()
 
@@ -650,13 +1085,18 @@ FLUJO OBLIGATORIO:
                     except:
                         pass
 
+    # 2. BUSCAR EN DOCUMENTACIÓN DEL PROYECTO
+    doc_results = search_project_documentation(path, search_term)
+    primary_docs = doc_results["primary"]
+    secondary_docs = doc_results["secondary"]
+
     # Guardar resultados
     SESSION_STATE["search_results"] = found_by_name + found_by_content
     SESSION_STATE["step_3"] = True
 
     response = f"""
 ╔══════════════════════════════════════════════════════════════════╗
-║  PASO 3/7: BUSCAR SIMILAR                                        ║
+║  PASO 3/9: BUSCAR SIMILAR                                        ║
 ║  Pregunta: ¿Existe algo similar que pueda extender/heredar?      ║
 ╚══════════════════════════════════════════════════════════════════╝
 
@@ -666,8 +1106,40 @@ FLUJO OBLIGATORIO:
 
 """
 
+    # Mostrar documentación encontrada PRIMERO (prioridad alta)
+    if primary_docs:
+        response += f"""━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📚 DOCUMENTACIÓN RELEVANTE ({len(primary_docs)} principales, {len(secondary_docs)} secundarios)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚠️ IMPORTANTE: Lee esta documentación ANTES de crear código nuevo.
+   Ordenada por: tipo + fecha + relevancia (duplicados detectados)
+
+"""
+        for i, doc in enumerate(primary_docs[:5], 1):
+            doc_type = doc.get('doc_type', 'otro').upper()
+            priority = doc.get('priority', '📎 BAJA')
+            age_label = doc.get('age_label', '⚪')
+
+            response += f"{i}. {priority} {doc['title']}\n"
+            response += f"   📁 {doc['relative_path']}\n"
+            response += f"   {doc_type} | {age_label}\n"
+
+            if doc.get('warnings'):
+                for warning in doc['warnings'][:2]:
+                    response += f"   ⚠️ {warning}\n"
+
+            if doc['relevant_sections']:
+                response += f"   Secciones:\n"
+                for section in doc['relevant_sections'][:3]:
+                    response += f"      → {section}\n"
+            response += "\n"
+
+        if secondary_docs:
+            response += f"   📎 {len(secondary_docs)} docs secundarios (versiones anteriores o baja relevancia)\n\n"
+
     if found_by_name:
-        response += f"📄 POR NOMBRE ({len(found_by_name)} archivos):\n"
+        response += f"📄 CÓDIGO POR NOMBRE ({len(found_by_name)} archivos):\n"
         for f in found_by_name[:15]:
             try:
                 relative = f.relative_to(path)
@@ -679,7 +1151,7 @@ FLUJO OBLIGATORIO:
         response += "\n"
 
     if found_by_content:
-        response += f"📝 POR CONTENIDO ({len(found_by_content)} archivos):\n"
+        response += f"📝 CÓDIGO POR CONTENIDO ({len(found_by_content)} archivos):\n"
         for f in found_by_content[:10]:
             try:
                 relative = f.relative_to(path)
@@ -688,7 +1160,7 @@ FLUJO OBLIGATORIO:
                 response += f"   • {f.name}\n"
         response += "\n"
 
-    if not found_by_name and not found_by_content:
+    if not found_by_name and not found_by_content and not primary_docs:
         response += """❌ NO SE ENCONTRÓ NADA SIMILAR
 
    Puedes crear algo nuevo.
@@ -697,7 +1169,8 @@ FLUJO OBLIGATORIO:
         response += """
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ⚠️ IA: EVALÚA estos resultados y decide:
-   • ¿Puedo REUTILIZAR alguno directamente?
+   • ¿Hay DOCUMENTACIÓN con instrucciones a seguir?
+   • ¿Puedo REUTILIZAR algún código directamente?
    • ¿Puedo EXTENDER/HEREDAR de alguno?
    • ¿Necesito crear uno NUEVO? ¿Por qué?
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -756,8 +1229,87 @@ FLUJO OBLIGATORIO:
     return response
 
 
+# ============================================================
+# VALIDACIÓN DE NIVEL POR COMPORTAMIENTO
+# ============================================================
+
+# Palabras clave que indican comportamiento de cada nivel
+NIVEL_KEYWORDS = {
+    "pieza": ["una sola cosa", "atómico", "mínimo", "único", "single", "una cosa", "único propósito"],
+    "componente": ["combina piezas", "agrupa", "ui elements", "junta", "combina", "elementos ui", "piezas de ui"],
+    "contenedor": ["orquesta", "coordina", "sistema", "reutilizable", "lógica", "gestiona", "maneja"],
+    "pantalla": ["vista", "screen", "usuario ve", "pantalla única", "vista única", "interfaz usuario"],
+    "estructura": ["proyecto", "main", "aplicación", "completo", "entrada principal"]
+}
+
+# Palabras que son INCOMPATIBLES con cada nivel (detectar errores obvios)
+NIVEL_INCOMPATIBLE = {
+    "pieza": ["coordina", "orquesta", "sistemas", "pantallas", "gestiona varios"],
+    "componente": ["coordina sistemas", "orquesta componentes", "gestiona pantallas"],
+    "contenedor": ["vista única", "usuario ve directamente", "pantalla principal"],
+    "pantalla": ["atómico", "una sola cosa mínima", "pieza básica"],
+    "estructura": []
+}
+
+
+def validar_comportamiento_nivel(nivel: str, justificacion: str) -> tuple:
+    """
+    Valida si la justificación corresponde al comportamiento del nivel.
+    Retorna: (es_valido, mensaje, nivel_sugerido)
+    """
+    justificacion_lower = justificacion.lower()
+
+    # Verificar palabras incompatibles (errores obvios)
+    for palabra in NIVEL_INCOMPATIBLE.get(nivel, []):
+        if palabra in justificacion_lower:
+            # Buscar qué nivel sería el correcto
+            for otro_nivel, keywords in NIVEL_KEYWORDS.items():
+                if otro_nivel != nivel:
+                    for kw in keywords:
+                        if kw in justificacion_lower:
+                            return (False, f"La justificación indica '{palabra}' que es incompatible con {nivel}.", otro_nivel)
+            return (False, f"La justificación indica '{palabra}' que es incompatible con {nivel}.", None)
+
+    # Verificar que hay al menos alguna palabra clave del nivel
+    keywords_nivel = NIVEL_KEYWORDS.get(nivel, [])
+    tiene_keyword = any(kw in justificacion_lower for kw in keywords_nivel)
+
+    if not tiene_keyword:
+        # No es un error, solo una advertencia suave
+        return (True, "No se detectaron palabras clave típicas del nivel, pero se acepta la justificación.", None)
+
+    return (True, "Comportamiento validado.", None)
+
+
+def get_suggested_filename(nivel: str, current_filename: str, language: str) -> str:
+    """Genera el nombre de archivo sugerido según nomenclatura"""
+    import os
+    basename = os.path.basename(current_filename)
+    name_without_ext = os.path.splitext(basename)[0]
+    ext = os.path.splitext(basename)[1] or (".gd" if language == "godot" else ".py")
+
+    # Quitar sufijos comunes que no son de la nomenclatura
+    for suffix in ["_panel", "_dialog", "_popup", "_view", "_controller", "_manager", "_handler", "_base"]:
+        if name_without_ext.endswith(suffix):
+            name_without_ext = name_without_ext[:-len(suffix)]
+            break
+
+    suffixes = {
+        "godot": {"pieza": "_piece", "componente": "_component", "contenedor": "_system", "pantalla": "_screen"},
+        "python": {"pieza": "_piece", "componente": "_component", "contenedor": "_system", "pantalla": "_screen"},
+        "web": {"pieza": "_atom", "componente": "_molecule", "contenedor": "_organism", "pantalla": "_template"}
+    }
+
+    suffix = suffixes.get(language, suffixes["python"]).get(nivel, "")
+    return f"{name_without_ext}{suffix}{ext}"
+
+
 async def step5_nivel(nivel: str, filename: str, justificacion: str) -> str:
-    """PASO 5: ¿Nivel correcto?"""
+    """PASO 5: ¿Está en el nivel correcto de la jerarquía?
+
+    Valida el COMPORTAMIENTO del código (según justificación), no solo el nombre.
+    El nivel se determina por lo que HACE el código, no por cómo se llama el archivo.
+    """
 
     # Verificar paso anterior
     if not SESSION_STATE["step_4"]:
@@ -774,56 +1326,85 @@ FLUJO OBLIGATORIO:
    3. philosophy_q3_buscar           ✅
    4. philosophy_q4_herencia         ← FALTA
    5. philosophy_q5_nivel
-   6. [Escribir código]
-   7. philosophy_validate
+   6. philosophy_q6_verificar_dependencias
+   7. [Escribir código]
+   8. philosophy_validate
 """
 
-    # Validar nomenclatura
     language = SESSION_STATE.get("current_language", "godot")
-    issues = []
+    change_type = SESSION_STATE.get("current_change_type", "nuevo")
+
+    # 1. VALIDAR COMPORTAMIENTO (principal)
+    comportamiento_ok, comportamiento_msg, nivel_sugerido = validar_comportamiento_nivel(nivel, justificacion)
+
+    if not comportamiento_ok:
+        sugerencia = f"\n💡 Nivel sugerido: {nivel_sugerido.upper()}" if nivel_sugerido else ""
+        return f"""
+╔══════════════════════════════════════════════════════════════════╗
+║  ⛔ ERROR: NIVEL INCORRECTO                                      ║
+║  El nivel se determina por el COMPORTAMIENTO del código          ║
+╚══════════════════════════════════════════════════════════════════╝
+
+📊 NIVEL INDICADO: {nivel.upper()}
+📄 ARCHIVO: {filename}
+
+❌ {comportamiento_msg}
+{sugerencia}
+
+COMPORTAMIENTO POR NIVEL:
+   • Pieza      → Hace UNA sola cosa atómica
+   • Componente → Combina piezas
+   • Contenedor → Orquesta componentes, lógica reutilizable
+   • Pantalla   → Vista única del usuario
+   • Estructura → Proyecto completo
+
+🚫 CORRIGE EL NIVEL SEGÚN EL COMPORTAMIENTO DEL CÓDIGO
+"""
+
+    # 2. VERIFICAR NOMENCLATURA (secundario)
+    nomenclatura_ok = True
+    suggested_name = None
 
     if language in PHILOSOPHY["naming"]:
         pattern = PHILOSOPHY["naming"][language].get(nivel)
         if pattern and not re.search(pattern, filename):
-            expected = {
-                "pieza": "*_piece.(gd|tscn)" if language == "godot" else "pieces/*.py",
-                "componente": "*_component.(gd|tscn)" if language == "godot" else "components/*.py",
-                "contenedor": "*_system.(gd|tscn)" if language == "godot" else "systems/*.py",
-                "pantalla": "*_screen.(gd|tscn)" if language == "godot" else "screens/*.py",
-            }
-            issues.append(f"❌ Nomenclatura incorrecta para {nivel}: debería ser {expected.get(nivel, 'ver documentación')}")
+            nomenclatura_ok = False
+            suggested_name = get_suggested_filename(nivel, filename, language)
 
-    if issues:
-        error_response = f"""
+    # 3. Para código NUEVO: exigir nomenclatura
+    if change_type == "nuevo" and not nomenclatura_ok:
+        return f"""
 ╔══════════════════════════════════════════════════════════════════╗
-║  ⛔ ERROR: NOMENCLATURA NO VÁLIDA                                ║
+║  ⛔ ERROR: NOMENCLATURA NO VÁLIDA (código nuevo)                 ║
 ╚══════════════════════════════════════════════════════════════════╝
 
-📊 NIVEL: {nivel.upper()}
+📊 NIVEL: {nivel.upper()} - ✅ Comportamiento correcto
 📄 ARCHIVO: {filename}
 
-{chr(10).join(issues)}
+❌ Para código NUEVO debes usar la nomenclatura correcta.
 
-NOMENCLATURA CORRECTA (5 niveles):
-   • Pieza      → pieces/*_piece.(gd|tscn)
-   • Componente → components/*_component.(gd|tscn)
-   • Contenedor → systems/*_system.(gd|tscn)
-   • Pantalla   → screens/*_screen.(gd|tscn)
-   • Estructura → main.tscn
+💡 NOMBRE SUGERIDO: {suggested_name}
 
-🚫 CORRIGE LA NOMENCLATURA Y VUELVE A INTENTAR
+NOMENCLATURA CORRECTA:
+   • Pieza      → *_piece.(gd|tscn) | pieces/*.py
+   • Componente → *_component.(gd|tscn) | components/*.py
+   • Contenedor → *_system.(gd|tscn) | systems/*.py
+   • Pantalla   → *_screen.(gd|tscn) | screens/*.py
+
+🚫 USA EL NOMBRE SUGERIDO
 """
-        return error_response
 
-    # Todo OK
+    # 4. GUARDAR ESTADO - El nivel es válido
     SESSION_STATE["step_5"] = True
     SESSION_STATE["current_level"] = nivel
     SESSION_STATE["current_filename"] = filename
 
-    response = f"""
+    # 5. CONSTRUIR RESPUESTA
+    if nomenclatura_ok:
+        response = f"""
 ╔══════════════════════════════════════════════════════════════════╗
-║  PASO 5/7: NIVEL CORRECTO                                        ║
-║  Pregunta: ¿Está en el nivel correcto de la jerarquía?           ║
+║  PASO 5/8: NIVEL CORRECTO                                        ║
+║  "El nivel es el COMPORTAMIENTO, el nombre es la ETIQUETA"       ║
 ╚══════════════════════════════════════════════════════════════════╝
 
 📊 NIVEL: {nivel.upper()} - {PHILOSOPHY['levels'].get(nivel, '')}
@@ -832,13 +1413,47 @@ NOMENCLATURA CORRECTA (5 niveles):
 
 💡 JUSTIFICACIÓN: {justificacion}
 
-✅ NOMENCLATURA VALIDADA
+✅ COMPORTAMIENTO VALIDADO
+✅ NOMENCLATURA CORRECTA
 ✅ PASO 5 COMPLETADO
+"""
+    else:
+        # Nomenclatura no coincide = deuda técnica de naming
+        response = f"""
+╔══════════════════════════════════════════════════════════════════╗
+║  PASO 5/8: NIVEL CORRECTO                                        ║
+║  "El nivel es el COMPORTAMIENTO, el nombre es la ETIQUETA"       ║
+╚══════════════════════════════════════════════════════════════════╝
 
+📊 NIVEL: {nivel.upper()} - {PHILOSOPHY['levels'].get(nivel, '')}
+
+📄 ARCHIVO: {filename}
+
+💡 JUSTIFICACIÓN: {justificacion}
+
+✅ COMPORTAMIENTO VALIDADO
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ DEUDA TÉCNICA: Naming
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   📛 ACTUAL:    {filename}
+   💡 SUGERIDO:  {suggested_name}
+
+   📋 MOTIVO: Archivo existente con dependencias.
+   🔧 MEJORA FUTURA: Renombrar en refactor global.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ PASO 5 COMPLETADO (nivel validado, naming documentado)
+"""
+
+    response += f"""
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 📝 RESUMEN DE DISEÑO:
    • Descripción: {SESSION_STATE.get('current_description', 'N/A')}
+   • Tipo: {change_type}
    • Nivel: {nivel}
    • Archivo: {filename}
    • Lenguaje: {language}
@@ -846,32 +1461,221 @@ NOMENCLATURA CORRECTA (5 niveles):
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ➡️ SIGUIENTE:
-   PASO 6: Escribe el código siguiendo el diseño
-   PASO 7: Usa philosophy_validate para validar
+   PASO 6: Usa philosophy_q6_verificar_dependencias
+   (Lista las funciones externas que vas a llamar)
 """
     return response
 
 
-async def step7_validate(code: str, filename: str) -> str:
-    """PASO 7: Validar código escrito"""
+async def step6_verificar_dependencias(project_path: str, dependencies: list) -> str:
+    """PASO 6: Verificar dependencias externas antes de escribir código"""
 
     # Verificar paso anterior
     if not SESSION_STATE["step_5"]:
         return """
 ╔══════════════════════════════════════════════════════════════════╗
+║  ⛔ ERROR: PASO OBLIGATORIO OMITIDO                              ║
+╚══════════════════════════════════════════════════════════════════╝
+
+❌ DEBES completar philosophy_q5_nivel PRIMERO
+
+FLUJO OBLIGATORIO:
+   1. philosophy_q1_responsabilidad  ✅
+   2. philosophy_q2_reutilizacion    ✅
+   3. philosophy_q3_buscar           ✅
+   4. philosophy_q4_herencia         ✅
+   5. philosophy_q5_nivel            ← FALTA
+   6. philosophy_q6_verificar_dependencias
+   7. [Escribir código]
+   8. philosophy_validate
+"""
+
+    path = Path(project_path).expanduser().resolve()
+
+    if not path.exists():
+        return f"Error: El directorio {project_path} no existe"
+
+    language = SESSION_STATE.get("current_language", "godot")
+    verified = []
+    issues = []
+
+    for dep in dependencies:
+        file_rel = dep.get("file", "")
+        func_name = dep.get("function", "")
+        expected_params = dep.get("expected_params", "")
+        expected_return = dep.get("expected_return", "")
+
+        file_path = path / file_rel
+
+        # Verificar que el archivo existe
+        if not file_path.exists():
+            issues.append({
+                "type": "FILE_NOT_FOUND",
+                "file": file_rel,
+                "function": func_name,
+                "message": f"❌ Archivo no existe: {file_rel}"
+            })
+            continue
+
+        # Leer contenido
+        try:
+            content = file_path.read_text(encoding='utf-8', errors='ignore')
+        except Exception as e:
+            issues.append({
+                "type": "READ_ERROR",
+                "file": file_rel,
+                "function": func_name,
+                "message": f"❌ Error leyendo archivo: {e}"
+            })
+            continue
+
+        # Buscar la función según lenguaje
+        if language == "godot":
+            # Buscar: func nombre_funcion(params) -> return:
+            pattern = rf'^func\s+{re.escape(func_name)}\s*\(([^)]*)\)(?:\s*->\s*(\w+))?'
+        elif language == "python":
+            pattern = rf'^def\s+{re.escape(func_name)}\s*\(([^)]*)\)(?:\s*->\s*(\w+))?'
+        else:
+            pattern = rf'function\s+{re.escape(func_name)}\s*\(([^)]*)\)'
+
+        match = re.search(pattern, content, re.MULTILINE)
+
+        if not match:
+            issues.append({
+                "type": "FUNC_NOT_FOUND",
+                "file": file_rel,
+                "function": func_name,
+                "message": f"❌ Función no encontrada: {func_name} en {file_rel}"
+            })
+            continue
+
+        # Extraer firma real
+        real_params = match.group(1).strip() if match.group(1) else ""
+        real_return = match.group(2) if len(match.groups()) > 1 and match.group(2) else "void"
+
+        # Comparar si se especificaron expectativas
+        param_match = True
+        return_match = True
+
+        if expected_params:
+            # Normalizar para comparar (quitar espacios extra)
+            norm_expected = re.sub(r'\s+', ' ', expected_params.strip())
+            norm_real = re.sub(r'\s+', ' ', real_params.strip())
+            param_match = norm_expected.lower() == norm_real.lower()
+
+        if expected_return:
+            return_match = expected_return.lower() == real_return.lower()
+
+        if not param_match or not return_match:
+            issues.append({
+                "type": "SIGNATURE_MISMATCH",
+                "file": file_rel,
+                "function": func_name,
+                "expected_params": expected_params,
+                "real_params": real_params,
+                "expected_return": expected_return,
+                "real_return": real_return,
+                "message": f"❌ Firma no coincide: {func_name}"
+            })
+        else:
+            verified.append({
+                "file": file_rel,
+                "function": func_name,
+                "params": real_params,
+                "return": real_return
+            })
+
+    # Construir respuesta
+    if issues:
+        response = f"""
+╔══════════════════════════════════════════════════════════════════╗
+║  ⛔ ERROR: DEPENDENCIAS NO VÁLIDAS                               ║
+║  "Verificar ANTES de escribir, no DESPUÉS de fallar"             ║
+╚══════════════════════════════════════════════════════════════════╝
+
+❌ DISCREPANCIAS ENCONTRADAS: {len(issues)}
+
+"""
+        for issue in issues:
+            response += f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            response += f"{issue['message']}\n"
+            response += f"   Archivo: {issue.get('file', 'N/A')}\n"
+            response += f"   Función: {issue.get('function', 'N/A')}\n"
+
+            if issue['type'] == 'SIGNATURE_MISMATCH':
+                response += f"\n   ESPERADO: {issue['function']}({issue.get('expected_params', '')}) -> {issue.get('expected_return', 'void')}\n"
+                response += f"   REAL:     {issue['function']}({issue.get('real_params', '')}) -> {issue.get('real_return', 'void')}\n"
+
+            response += "\n"
+
+        if verified:
+            response += f"\n✅ Dependencias verificadas correctamente: {len(verified)}\n"
+            for v in verified:
+                response += f"   • {v['file']}:{v['function']}({v['params']}) -> {v['return']}\n"
+
+        response += """
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚫 NO PUEDES CONTINUAR hasta resolver las discrepancias.
+
+Opciones:
+1. Corregir las llamadas para usar las firmas reales
+2. Modificar las funciones destino si es necesario
+3. Volver a ejecutar este paso con las correcciones
+"""
+        return response
+
+    # Todo OK
+    SESSION_STATE["step_6"] = True
+    SESSION_STATE["verified_dependencies"] = verified
+
+    response = f"""
+╔══════════════════════════════════════════════════════════════════╗
+║  PASO 6/8: VERIFICACIÓN DE DEPENDENCIAS                          ║
+║  "Verificar ANTES de escribir, no DESPUÉS de fallar"             ║
+╚══════════════════════════════════════════════════════════════════╝
+
+✅ TODAS LAS DEPENDENCIAS VERIFICADAS: {len(verified)}
+
+"""
+    for v in verified:
+        response += f"   ✓ {v['file']}:{v['function']}({v['params']}) -> {v['return']}\n"
+
+    response += f"""
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ PASO 6 COMPLETADO
+
+➡️ SIGUIENTE:
+   PASO 7: Escribe el código usando las firmas verificadas
+   PASO 8: Usa philosophy_validate para validar
+"""
+    return response
+
+
+async def step7_validate(code: str, filename: str) -> str:
+    """PASO 8: Validar código escrito"""
+
+    # Verificar paso anterior (ahora requiere step_6)
+    if not SESSION_STATE["step_6"]:
+        return """
+╔══════════════════════════════════════════════════════════════════╗
 ║  ⛔ ERROR: PASOS OBLIGATORIOS OMITIDOS                           ║
 ╚══════════════════════════════════════════════════════════════════╝
 
-❌ DEBES completar los pasos 1-5 antes de validar
+❌ DEBES completar los pasos 1-6 antes de validar
 
-FLUJO OBLIGATORIO:
+FLUJO OBLIGATORIO (8 pasos):
    1. philosophy_q1_responsabilidad
    2. philosophy_q2_reutilizacion
    3. philosophy_q3_buscar
    4. philosophy_q4_herencia
    5. philosophy_q5_nivel
-   6. [Escribir código]
-   7. philosophy_validate          ← ESTÁS AQUÍ
+   6. philosophy_q6_verificar_dependencias
+   7. [Escribir código]
+   8. philosophy_validate          ← ESTÁS AQUÍ
+
+"Verificar ANTES de escribir, no DESPUÉS de fallar"
 
 ⚠️ Empieza desde el paso 1.
 """
@@ -928,7 +1732,7 @@ FLUJO OBLIGATORIO:
     # Construir respuesta
     response = f"""
 ╔══════════════════════════════════════════════════════════════════╗
-║  PASO 7/7: VALIDACIÓN FINAL                                      ║
+║  PASO 8/8: VALIDACIÓN FINAL                                      ║
 ╚══════════════════════════════════════════════════════════════════╝
 
 📄 ARCHIVO: {filename}
@@ -951,12 +1755,30 @@ FLUJO OBLIGATORIO:
 
     if not issues and not warnings:
         response += "✅ CÓDIGO APROBADO\n\n"
-        response += "El código cumple con la filosofía modular.\n"
+        response += "El código cumple con la filosofía modular.\n\n"
+        response += """➡️ PASO 9: Documenta los cambios en docs/CHANGELOG.md
+
+   Incluye:
+   - Qué se añadió/modificó
+   - Por qué (motivo)
+   - **Reemplaza/Obsoleta**: Si este cambio deja obsoleto código o docs anteriores
+
+   "Documentar DESPUÉS de validar"
+"""
         # Resetear estado para la próxima creación
         reset_state()
     elif not issues:
         response += "✅ CÓDIGO APROBADO CON ADVERTENCIAS\n\n"
-        response += "Considera las advertencias para mejorar.\n"
+        response += "Considera las advertencias para mejorar.\n\n"
+        response += """➡️ PASO 9: Documenta los cambios en docs/CHANGELOG.md
+
+   Incluye:
+   - Qué se añadió/modificó
+   - Por qué (motivo)
+   - **Reemplaza/Obsoleta**: Si este cambio deja obsoleto código o docs anteriores
+
+   "Documentar DESPUÉS de validar"
+"""
         # Resetear estado
         reset_state()
     else:
@@ -973,16 +1795,18 @@ async def show_checklist() -> str:
     """Muestra el checklist completo"""
 
     current_step = "Ningún flujo activo"
-    if SESSION_STATE["step_5"]:
-        current_step = "5 completados → Listo para escribir código"
+    if SESSION_STATE["step_6"]:
+        current_step = "6 completados → Listo para escribir código y validar"
+    elif SESSION_STATE["step_5"]:
+        current_step = "5/6 → Falta: Q6 Verificar dependencias"
     elif SESSION_STATE["step_4"]:
-        current_step = "4/5 → Falta: Q5 Nivel"
+        current_step = "4/6 → Falta: Q5 Nivel"
     elif SESSION_STATE["step_3"]:
-        current_step = "3/5 → Falta: Q4 Herencia"
+        current_step = "3/6 → Falta: Q4 Herencia"
     elif SESSION_STATE["step_2"]:
-        current_step = "2/5 → Falta: Q3 Buscar"
+        current_step = "2/6 → Falta: Q3 Buscar"
     elif SESSION_STATE["step_1"]:
-        current_step = "1/5 → Falta: Q2 Reutilización"
+        current_step = "1/6 → Falta: Q2 Reutilización"
 
     change_type = SESSION_STATE.get("current_change_type")
     change_type_display = f"({change_type})" if change_type else ""
@@ -1012,23 +1836,30 @@ async def show_checklist() -> str:
    Contenedor = lógica reutilizable en varias pantallas
    Pantalla = vista única del usuario (no reutilizable)
 
-📋 LAS 5 PREGUNTAS (flujo obligatorio):
+📋 LAS 5 PREGUNTAS + VERIFICACIÓN (flujo obligatorio):
 
    {"✅" if SESSION_STATE["step_1"] else "□"} 1. ¿Esta pieza hace UNA sola cosa?
    {"✅" if SESSION_STATE["step_2"] else "□"} 2. ¿Puedo reutilizar esto en otro lugar?
    {"✅" if SESSION_STATE["step_3"] else "□"} 3. ¿Existe algo similar que pueda extender/heredar?
    {"✅" if SESSION_STATE["step_4"] else "□"} 4. ¿Si cambio la base, se actualizarán todas las instancias?
    {"✅" if SESSION_STATE["step_5"] else "□"} 5. ¿Está en el nivel correcto de la jerarquía?
+   {"✅" if SESSION_STATE["step_6"] else "□"} 6. ¿Las dependencias externas existen y coinciden?
 
-🔧 FLUJO DE HERRAMIENTAS:
+   "Verificar ANTES de escribir, no DESPUÉS de fallar"
 
-   philosophy_q1_responsabilidad  → Paso 1
-   philosophy_q2_reutilizacion    → Paso 2
-   philosophy_q3_buscar           → Paso 3
-   philosophy_q4_herencia         → Paso 4
-   philosophy_q5_nivel            → Paso 5
-   [Escribir código]              → Paso 6
-   philosophy_validate            → Paso 7
+🔧 FLUJO DE HERRAMIENTAS (9 pasos):
+
+   philosophy_q1_responsabilidad           → Paso 1
+   philosophy_q2_reutilizacion             → Paso 2
+   philosophy_q3_buscar                    → Paso 3
+   philosophy_q4_herencia                  → Paso 4
+   philosophy_q5_nivel                     → Paso 5
+   philosophy_q6_verificar_dependencias    → Paso 6
+   [Escribir código]                       → Paso 7
+   philosophy_validate                     → Paso 8
+   [Documentar en CHANGELOG]               → Paso 9
+
+   "Documentar DESPUÉS de validar"
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Si saltas un paso, el MCP bloquea y muestra error.
@@ -1040,8 +1871,60 @@ Si saltas un paso, el MCP bloquea y muestra error.
 # ANÁLISIS ARQUITECTÓNICO - IMPLEMENTACIÓN
 # ============================================================
 
+def extract_function_signatures(content: str, language: str) -> list:
+    """Extrae las firmas de funciones públicas de un archivo"""
+    signatures = []
+
+    if language == "godot":
+        # Buscar: func nombre(params) -> tipo:
+        # Excluir funciones privadas (empiezan con _)
+        pattern = r'^func\s+([a-zA-Z][a-zA-Z0-9_]*)\s*\(([^)]*)\)(?:\s*->\s*(\w+))?'
+        for match in re.finditer(pattern, content, re.MULTILINE):
+            func_name = match.group(1)
+            if not func_name.startswith('_'):  # Solo públicas
+                params = match.group(2).strip() if match.group(2) else ""
+                return_type = match.group(3) if match.group(3) else "void"
+                signatures.append({
+                    "name": func_name,
+                    "params": params,
+                    "return": return_type,
+                    "signature": f"{func_name}({params}) -> {return_type}"
+                })
+
+    elif language == "python":
+        # Buscar: def nombre(params) -> tipo:
+        # Excluir funciones privadas (empiezan con _)
+        pattern = r'^def\s+([a-zA-Z][a-zA-Z0-9_]*)\s*\(([^)]*)\)(?:\s*->\s*(\w+))?'
+        for match in re.finditer(pattern, content, re.MULTILINE):
+            func_name = match.group(1)
+            if not func_name.startswith('_'):  # Solo públicas
+                params = match.group(2).strip() if match.group(2) else ""
+                return_type = match.group(3) if match.group(3) else "None"
+                signatures.append({
+                    "name": func_name,
+                    "params": params,
+                    "return": return_type,
+                    "signature": f"{func_name}({params}) -> {return_type}"
+                })
+
+    elif language == "web":
+        # Buscar: function nombre(params) o export function nombre(params)
+        pattern = r'(?:export\s+)?function\s+([a-zA-Z][a-zA-Z0-9_]*)\s*\(([^)]*)\)'
+        for match in re.finditer(pattern, content):
+            func_name = match.group(1)
+            params = match.group(2).strip() if match.group(2) else ""
+            signatures.append({
+                "name": func_name,
+                "params": params,
+                "return": "unknown",
+                "signature": f"{func_name}({params})"
+            })
+
+    return signatures
+
+
 def get_file_info(file_path: Path, language: str) -> dict:
-    """Extrae información de un archivo de código"""
+    """Extrae información de un archivo de código incluyendo firmas públicas"""
     try:
         content = file_path.read_text(encoding='utf-8', errors='ignore')
         lines = content.split('\n')
@@ -1065,6 +1948,9 @@ def get_file_info(file_path: Path, language: str) -> dict:
             classes = 0
             functions = 0
             extends = None
+
+        # Extraer firmas de funciones públicas
+        public_signatures = extract_function_signatures(content, language)
 
         # Determinar nivel actual basado en nomenclatura
         filename = file_path.name.lower()
@@ -1099,7 +1985,8 @@ def get_file_info(file_path: Path, language: str) -> dict:
             "classes": classes,
             "functions": functions,
             "extends": extends,
-            "nivel_actual": nivel_actual
+            "nivel_actual": nivel_actual,
+            "public_signatures": public_signatures  # NUEVO: firmas públicas
         }
     except Exception as e:
         return {
@@ -1110,6 +1997,7 @@ def get_file_info(file_path: Path, language: str) -> dict:
             "functions": 0,
             "extends": None,
             "nivel_actual": "error",
+            "public_signatures": [],
             "error": str(e)
         }
 
@@ -1266,6 +2154,7 @@ async def architecture_analysis(project_path: str, language: str, project_name: 
     total_lines = sum(f["lines"] for f in files_info)
     total_classes = sum(f["classes"] for f in files_info)
     total_functions = sum(f["functions"] for f in files_info)
+    total_public_signatures = sum(len(f.get("public_signatures", [])) for f in files_info)
 
     # Agrupar por nivel actual
     by_level = {}
@@ -1276,16 +2165,26 @@ async def architecture_analysis(project_path: str, language: str, project_name: 
         by_level[nivel].append(f)
 
     # Construir tabla de inventario
-    inventory_table = "| # | Archivo | Líneas | Clases | Funciones | Nivel actual | Extends |\n"
-    inventory_table += "|---|---------|--------|--------|-----------|--------------|----------|\n"
+    inventory_table = "| # | Archivo | Líneas | Clases | Funciones | Públicas | Nivel actual | Extends |\n"
+    inventory_table += "|---|---------|--------|--------|-----------|----------|--------------|----------|\n"
 
     for i, f in enumerate(files_info, 1):
-        inventory_table += f"| {i} | {f['relative_path']} | {f['lines']} | {f['classes']} | {f['functions']} | {f['nivel_actual']} | {f['extends'] or '-'} |\n"
+        num_public = len(f.get("public_signatures", []))
+        inventory_table += f"| {i} | {f['relative_path']} | {f['lines']} | {f['classes']} | {f['functions']} | {num_public} | {f['nivel_actual']} | {f['extends'] or '-'} |\n"
+
+    # Construir tabla de firmas públicas (FASE 1 mejorada)
+    signatures_table = "| Archivo | Función | Firma completa |\n"
+    signatures_table += "|---------|---------|----------------|\n"
+
+    for f in files_info:
+        for sig in f.get("public_signatures", []):
+            signatures_table += f"| {f['relative_path']} | {sig['name']} | `{sig['signature']}` |\n"
 
     response = f'''
 ╔══════════════════════════════════════════════════════════════════╗
 ║  ANÁLISIS ARQUITECTÓNICO INICIADO                                ║
 ║  "El análisis ES exhaustivo, sistemático y exacto"               ║
+║  "Verificar ANTES de escribir, no DESPUÉS de fallar"             ║
 ╚══════════════════════════════════════════════════════════════════╝
 
 📁 PROYECTO: {project_name}
@@ -1304,6 +2203,7 @@ async def architecture_analysis(project_path: str, language: str, project_name: 
    • Total líneas de código: {total_lines}
    • Total clases: {total_classes}
    • Total funciones: {total_functions}
+   • Funciones públicas (verificables): {total_public_signatures}
 
 📊 POR NIVEL ACTUAL:
 '''
@@ -1319,6 +2219,12 @@ async def architecture_analysis(project_path: str, language: str, project_name: 
 {inventory_table}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📝 FIRMAS PÚBLICAS (para verificación de dependencias)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+{signatures_table}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ✅ FASE 0 COMPLETADA
 
@@ -1326,10 +2232,11 @@ async def architecture_analysis(project_path: str, language: str, project_name: 
    1. Usa philosophy_architecture_checkpoint para guardar el inventario (CHECKPOINT 1)
    2. Analiza las funcionalidades de cada archivo (FASE 2)
    3. Clasifica cada archivo en su nivel correcto (FASE 3)
-   4. Genera el plan de refactorización (FASE 4)
+   4. Genera el plan de refactorización con dependencias verificadas (FASE 4)
 
 ⚠️ IMPORTANTE:
-   - Guarda checkpoints frecuentemente
+   - Las FIRMAS PÚBLICAS son las interfaces verificables
+   - Usa estas firmas en FASE 4 para definir dependencias de cada tarea
    - Si la conversación se compacta, usa philosophy_architecture_resume
    - El archivo de análisis está en: {analysis_file}
 '''
@@ -1513,30 +2420,73 @@ async def architecture_checkpoint(
     return response
 
 
-async def architecture_status() -> str:
-    """Muestra el estado actual del análisis arquitectónico"""
+def find_analysis_files(project_path: str = None) -> list:
+    """Busca archivos de análisis arquitectónico en disco.
 
-    if not ARCHITECTURE_STATE["active"]:
-        return '''
+    Busca recursivamente en todos los directorios .claude del proyecto.
+    """
+    found_files = []
+
+    if not project_path:
+        return found_files
+
+    p = Path(project_path).expanduser().resolve()
+
+    if not p.exists():
+        return found_files
+
+    # Carpetas a ignorar
+    ignore_dirs = {".git", "__pycache__", "node_modules", ".godot", "addons", "venv", ".venv"}
+
+    # Buscar todos los directorios .claude recursivamente
+    for claude_dir in p.rglob(".claude"):
+        if not claude_dir.is_dir():
+            continue
+
+        # Verificar que no esté en una carpeta ignorada
+        if any(ignored in claude_dir.parts for ignored in ignore_dirs):
+            continue
+
+        # Buscar archivos de análisis en este .claude
+        for f in claude_dir.glob("architecture_analysis_*.md"):
+            try:
+                content = f.read_text(encoding='utf-8')
+                # Extraer metadata
+                estado_match = re.search(r'\*\*Estado:\*\*\s*(\w+)', content)
+                checkpoint_match = re.search(r'\*\*Checkpoint actual:\*\*\s*(\d+)', content)
+                title_match = re.search(r'^# Análisis Arquitectónico:\s*(.+)$', content, re.MULTILINE)
+                scope_match = re.search(r'\*\*Scope:\*\*\s*(.+)', content)
+
+                found_files.append({
+                    "path": str(f),
+                    "name": title_match.group(1) if title_match else f.stem,
+                    "estado": estado_match.group(1) if estado_match else "DESCONOCIDO",
+                    "checkpoint": int(checkpoint_match.group(1)) if checkpoint_match else 0,
+                    "scope": scope_match.group(1).strip() if scope_match else str(claude_dir.parent),
+                    "modified": f.stat().st_mtime
+                })
+            except:
+                pass
+
+    # Ordenar por fecha de modificación (más reciente primero)
+    found_files.sort(key=lambda x: x["modified"], reverse=True)
+    return found_files
+
+
+async def architecture_status(project_path: str = None) -> str:
+    """Muestra el estado actual del análisis arquitectónico.
+
+    Busca tanto en memoria como en disco para encontrar análisis existentes.
+    """
+
+    # 1. Si hay análisis activo en memoria, mostrarlo
+    if ARCHITECTURE_STATE["active"]:
+        return f'''
 ╔══════════════════════════════════════════════════════════════════╗
 ║  ESTADO DEL ANÁLISIS ARQUITECTÓNICO                              ║
 ╚══════════════════════════════════════════════════════════════════╝
 
-❌ NO HAY ANÁLISIS ACTIVO
-
-Para iniciar un análisis usa:
-   philosophy_architecture_analysis
-
-Para retomar un análisis existente usa:
-   philosophy_architecture_resume
-'''
-
-    return f'''
-╔══════════════════════════════════════════════════════════════════╗
-║  ESTADO DEL ANÁLISIS ARQUITECTÓNICO                              ║
-╚══════════════════════════════════════════════════════════════════╝
-
-✅ ANÁLISIS ACTIVO
+✅ ANÁLISIS ACTIVO EN MEMORIA
 
 📄 Archivo: {ARCHITECTURE_STATE["analysis_file"]}
 📊 Checkpoint: {ARCHITECTURE_STATE["checkpoint"]}
@@ -1552,6 +2502,64 @@ FASES DEL ANÁLISIS:
    {"✅" if ARCHITECTURE_STATE["checkpoint"] >= 3 else "⬜"} FASE 3: Análisis por niveles
    {"✅" if ARCHITECTURE_STATE["checkpoint"] >= 4 else "⬜"} FASE 4: Plan de refactorización
    {"🔄" if ARCHITECTURE_STATE["phase"] == "EJECUTANDO" else "⬜"} EJECUTANDO: Implementación del plan
+'''
+
+    # 2. Buscar archivos de análisis en disco
+    found_files = find_analysis_files(project_path) if project_path else []
+
+    if found_files:
+        response = '''
+╔══════════════════════════════════════════════════════════════════╗
+║  ESTADO DEL ANÁLISIS ARQUITECTÓNICO                              ║
+╚══════════════════════════════════════════════════════════════════╝
+
+⚠️ NO HAY ANÁLISIS ACTIVO EN MEMORIA
+
+📂 PERO SE ENCONTRARON ANÁLISIS PREVIOS EN DISCO:
+
+'''
+        for i, f in enumerate(found_files[:5], 1):
+            checkpoint = f["checkpoint"]
+            fases_completadas = f"{'✅' * checkpoint}{'⬜' * (4 - checkpoint)}"
+            scope = f.get("scope", "N/A")
+            response += f'''
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{i}. {f["name"]}
+   📄 Archivo: {f["path"]}
+   📂 Scope: {scope}
+   📊 Estado: {f["estado"]} (Checkpoint {checkpoint})
+   🔄 Fases: {fases_completadas}
+'''
+
+        response += f'''
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+➡️ PARA RETOMAR UN ANÁLISIS:
+   philosophy_architecture_resume(analysis_file="<ruta del archivo>")
+
+➡️ PARA INICIAR UNO NUEVO:
+   philosophy_architecture_analysis(project_path="...", language="...", project_name="...")
+'''
+        return response
+
+    # 3. No hay nada
+    no_path_msg = ""
+    if not project_path:
+        no_path_msg = "\n💡 TIP: Usa project_path para buscar análisis en un proyecto específico."
+
+    return f'''
+╔══════════════════════════════════════════════════════════════════╗
+║  ESTADO DEL ANÁLISIS ARQUITECTÓNICO                              ║
+╚══════════════════════════════════════════════════════════════════╝
+
+❌ NO HAY ANÁLISIS ACTIVO
+{no_path_msg}
+
+Para iniciar un análisis usa:
+   philosophy_architecture_analysis
+
+Para retomar un análisis existente usa:
+   philosophy_architecture_resume
 '''
 
 

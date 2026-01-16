@@ -49,7 +49,9 @@ ESTRUCTURA (proyecto completo: main.tscn)
 
 ---
 
-## Flujo Obligatorio: 7 Pasos
+## Flujo Obligatorio: 8 Pasos
+
+> **"Verificar ANTES de escribir, no DESPUÉS de fallar"**
 
 Usar las herramientas del MCP `philosophy` en orden:
 
@@ -58,14 +60,15 @@ Usar las herramientas del MCP `philosophy` en orden:
 3. **`philosophy_q3_buscar`** - ¿Existe algo similar?
 4. **`philosophy_q4_herencia`** - ¿Se actualizan las instancias?
 5. **`philosophy_q5_nivel`** - ¿Nivel correcto? (valida nomenclatura)
-6. **Escribir código**
-7. **`philosophy_validate`** - Validar código escrito
+6. **`philosophy_q6_verificar_dependencias`** - ¿Las dependencias externas existen y coinciden?
+7. **Escribir código**
+8. **`philosophy_validate`** - Validar código escrito
 
 El MCP bloquea si se salta un paso.
 
 ---
 
-## Las 5 Preguntas
+## Las 5 Preguntas + Verificación
 
 Antes de escribir código, responder:
 
@@ -74,6 +77,7 @@ Antes de escribir código, responder:
 3. ¿Existe algo similar que pueda extender/heredar?
 4. ¿Si cambio la base, se actualizarán todas las instancias?
 5. ¿Está en el nivel correcto de la jerarquía?
+6. ¿Las dependencias externas existen y sus firmas coinciden?
 
 ---
 

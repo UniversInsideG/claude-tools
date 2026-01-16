@@ -6,6 +6,8 @@ description: Análisis arquitectónico global para refactorizaciones (exhaustivo
 
 > **"El análisis ES exhaustivo, sistemático y exacto"**
 >
+> **"Verificar ANTES de escribir, no DESPUÉS de fallar"**
+>
 > No es opcional. No se abrevia. No se salta nada.
 
 ---
@@ -49,10 +51,14 @@ philosophy_architecture_analysis(
 
 ### FASE 1: INVENTARIO EXHAUSTIVO
 - Documentar TODOS los archivos
+- **INCLUYE FIRMAS PÚBLICAS** de cada archivo (extraídas automáticamente)
+- Las firmas son la base para verificar dependencias
 - Al terminar → `philosophy_architecture_checkpoint` con checkpoint=1
 
 ### FASE 2: MAPA DE FUNCIONALIDADES
 - Identificar QUÉ HACE cada parte
+- **USAR LAS FIRMAS VERIFICADAS** del inventario
+- No asumir firmas, usar las reales
 - Al terminar → `philosophy_architecture_checkpoint` con checkpoint=2
 
 ### FASE 3: CLASIFICACIÓN POR NIVELES
@@ -61,7 +67,19 @@ philosophy_architecture_analysis(
 
 ### FASE 4: PLAN DE REFACTORIZACIÓN
 - Generar plan ordenado
-- **CADA TAREA DEBE TENER UN TEST DE VERIFICACIÓN ESPECÍFICO**
+- **CADA TAREA DEBE INCLUIR:**
+  - Test de verificación específico
+  - **DEPENDENCIAS EXTERNAS VERIFICADAS** (funciones que va a llamar)
+- Formato de tarea:
+```
+TAREA X.Y: [descripción]
+ARCHIVO ORIGEN: [ruta]
+ARCHIVO DESTINO: [ruta]
+DEPENDENCIAS VERIFICADAS:
+  - archivo.gd → funcion(params) -> tipo ✓
+  - otro.gd → otra_funcion(params) -> tipo ✓
+TEST: [cómo verificar que funciona]
+```
 - Al terminar → `philosophy_architecture_checkpoint` con checkpoint=4
 
 ---
@@ -75,10 +93,12 @@ Identifica:
 - Qué hacer
 - Archivo origen
 - Archivo destino
-- **TEST DE VERIFICACIÓN** (definido en el plan)
+- **DEPENDENCIAS VERIFICADAS** (del plan)
+- **TEST DE VERIFICACIÓN** (del plan)
 
 ### PASO 2: Implementar usando /filosofia
-Usa el flujo q1→q7 para implementar la tarea.
+Usa el flujo q1→q8 para implementar la tarea.
+**IMPORTANTE:** En q6 (verificar dependencias), usa las firmas del plan.
 
 ### PASO 3: EJECUTAR EL TEST (OBLIGATORIO)
 **NO PUEDES SALTARTE ESTE PASO.**
@@ -92,6 +112,7 @@ Ejecuta el test de verificación definido en el plan. Ejemplos:
 Muestra al usuario:
 ```
 TAREA: [nombre]
+DEPENDENCIAS: [X funciones verificadas]
 TEST: [descripción del test]
 RESULTADO: ✅ PASÓ | ❌ FALLÓ
 EVIDENCIA: [qué verificaste]
@@ -118,23 +139,30 @@ EVIDENCIA: [qué verificaste]
 ┌─────────────────────────────────────────────────────────────┐
 │ TAREA 1.1                                                   │
 ├─────────────────────────────────────────────────────────────┤
-│ 1. Implementar (usar /filosofia)                            │
-│ 2. EJECUTAR TEST ←── OBLIGATORIO                            │
-│ 3. ¿Pasó?                                                   │
+│ 1. Leer dependencias del plan                               │
+│ 2. Implementar (usar /filosofia con q6)                     │
+│ 3. EJECUTAR TEST ←── OBLIGATORIO                            │
+│ 4. ¿Pasó?                                                   │
 │    ├─ SÍ → Marcar completada → TAREA 1.2                    │
-│    └─ NO → Corregir → Volver a paso 2                       │
+│    └─ NO → Corregir → Volver a paso 3                       │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## EJEMPLO DE EJECUCIÓN CORRECTA
+## EJEMPLO DE TAREA CON DEPENDENCIAS
 
 ```
 TAREA 1.1: Extraer lógica de autenticación
-TEST DEFINIDO: "Hacer login con usuario válido, verificar que funciona"
+ARCHIVO ORIGEN: src/main_controller.gd:45-120
+ARCHIVO DESTINO: systems/auth_system.gd
+DEPENDENCIAS VERIFICADAS:
+  - components/user_data.gd → get_current_user() -> User ✓
+  - pieces/crypto_piece.gd → hash_password(pass: String) -> String ✓
+TEST: "Hacer login con usuario válido, verificar que funciona"
 
 [Implemento la tarea usando /filosofia]
+[En q6 verifico las dependencias listadas]
 
 EJECUTANDO TEST:
 - Acción: Ejecutar login con usuario "test@test.com"
@@ -145,41 +173,30 @@ RESULTADO: ✅ PASÓ
 → Continúo con tarea 1.2
 ```
 
-```
-TAREA 1.2: Extraer validación de formularios
-TEST DEFINIDO: "Enviar formulario vacío, verificar mensaje de error"
-
-[Implemento la tarea usando /filosofia]
-
-EJECUTANDO TEST:
-- Acción: Enviar formulario con campos vacíos
-- Esperado: Mostrar "Campos requeridos"
-- Resultado: ❌ No muestra mensaje, formulario se envía
-
-RESULTADO: ❌ FALLÓ
-→ NO continúo. Diagnostico y corrijo primero.
-```
-
 ---
 
 ## HERRAMIENTAS
 
 | Herramienta | Cuándo |
 |-------------|--------|
-| `philosophy_architecture_analysis` | Iniciar análisis nuevo |
+| `philosophy_architecture_analysis` | Iniciar análisis nuevo (extrae firmas públicas) |
 | `philosophy_architecture_status` | Ver estado actual |
 | `philosophy_architecture_checkpoint` | Guardar progreso de fases 1-4 |
 | `philosophy_architecture_resume` | Retomar si se compactó |
+| `philosophy_q6_verificar_dependencias` | Verificar firmas antes de escribir código |
 
 ---
 
 ## RESUMEN DE OBLIGACIONES
 
 1. ✅ Checkpoint después de cada fase (1-4)
-2. ✅ Cada tarea del plan tiene test definido
-3. ✅ **EJECUTAR test después de cada tarea en fase 5**
-4. ✅ **NO continuar si el test falla**
-5. ✅ Usar resume si se compacta la conversación
+2. ✅ FASE 1 extrae firmas públicas automáticamente
+3. ✅ FASE 2 usa firmas verificadas, no asumidas
+4. ✅ FASE 4: cada tarea lista dependencias verificadas
+5. ✅ FASE 5: usar q6 para verificar dependencias antes de escribir
+6. ✅ **EJECUTAR test después de cada tarea en fase 5**
+7. ✅ **NO continuar si el test falla**
+8. ✅ Usar resume si se compacta la conversación
 
 ---
 
@@ -193,4 +210,4 @@ $ARGUMENTS
 1. `philosophy_architecture_status` → verificar estado
 2. Si no hay análisis → `philosophy_architecture_analysis`
 3. Si hay análisis → continuar desde la fase indicada
-4. En FASE 5 → **test obligatorio después de cada tarea**
+4. En FASE 5 → **verificar dependencias (q6) + test obligatorio**
