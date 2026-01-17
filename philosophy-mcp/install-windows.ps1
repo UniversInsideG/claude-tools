@@ -140,6 +140,7 @@ Write-Host "  - Claude EXPLICA por que quiere saltar pasos antes de preguntar"
 Write-Host "  - Warnings requieren confirmacion del usuario"
 Write-Host "  - Analisis arquitectonico protegido (no pierde el hilo)"
 Write-Host "  - CLAUDE.md reforzado con REGLA PRINCIPAL"
+Write-Host "  - /arquitectura completo activa /filosofia automaticamente"
 Write-Host ""
 Write-Host "Proximos pasos:" -ForegroundColor Yellow
 Write-Host "  1. Reinicia Claude Code"

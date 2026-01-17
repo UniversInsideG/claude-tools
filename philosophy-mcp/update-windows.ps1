@@ -122,6 +122,7 @@ Write-Host ""
 Write-Host "  ARQUITECTURA - Flujo protegido:" -ForegroundColor White
 Write-Host "    - Instrucciones reforzadas en las 4 fases"
 Write-Host "    - Claude no puede abandonar sin completar"
+Write-Host "    - Al completar, activa /filosofia automaticamente"
 Write-Host ""
 Write-Host "  CLAUDE.md - REGLA PRINCIPAL:" -ForegroundColor White
 Write-Host "    - 'SEGUIR INSTRUCCIONES DEL MCP' reforzado"
