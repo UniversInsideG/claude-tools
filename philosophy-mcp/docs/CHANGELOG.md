@@ -1,5 +1,31 @@
 # Changelog - Philosophy MCP
 
+## [2026-01-17] - CLAUDE.md reforzado con regla principal
+
+### Añadido
+- **REGLA PRINCIPAL** en CLAUDE.md: "SEGUIR INSTRUCCIONES DEL MCP"
+- Instrucciones explícitas de cuándo usar AskUserQuestion
+- Lista de PROHIBIDO para Claude
+- Flujo actualizado a 9 pasos con philosophy_q9_documentar
+
+### Motivo
+Los MCPs solo devuelven texto, no pueden forzar comportamiento.
+El CLAUDE.md refuerza que Claude DEBE seguir las instrucciones del MCP.
+
+---
+
+## [2026-01-17] - Análisis arquitectónico también obliga a preguntar
+
+### Añadido
+- **Instrucciones obligatorias** en `architecture_analysis`, `architecture_resume`, `architecture_checkpoint`
+- Claude debe completar las 4 FASES o explicar por qué quiere abandonar
+- Cada checkpoint muestra progreso de fases con checkboxes
+
+### Motivo
+Claude perdía el hilo del análisis arquitectónico y abandonaba sin completar las 4 fases.
+
+---
+
 ## [2026-01-17] - Claude debe explicar POR QUÉ quiere saltar pasos
 
 ### Cambiado

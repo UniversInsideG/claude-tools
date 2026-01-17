@@ -2462,6 +2462,29 @@ async def architecture_analysis(project_path: str, language: str, project_name: 
    - Usa estas firmas en FASE 4 para definir dependencias de cada tarea
    - Si la conversación se compacta, usa philosophy_architecture_resume
    - El archivo de análisis está en: {analysis_file}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🚨 INSTRUCCIÓN OBLIGATORIA PARA CLAUDE - ANÁLISIS ARQUITECTÓNICO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+DEBES completar las 4 FASES en orden. NO puedes abandonar sin preguntar.
+
+Si quieres abandonar o saltar una fase:
+1. EXPLICA por qué quieres abandonar/saltar
+2. USA AskUserQuestion para preguntar al usuario
+
+🚫 PROHIBIDO:
+- Abandonar el análisis sin preguntar
+- Saltar a otra tarea sin completar las 4 fases
+- Decir "continuaremos después" sin confirmar con el usuario
+- Olvidar guardar checkpoints
+
+FASES PENDIENTES:
+   ⬜ FASE 1: Guardar inventario (checkpoint 1)
+   ⬜ FASE 2: Mapa de funcionalidades (checkpoint 2)
+   ⬜ FASE 3: Clasificación por niveles (checkpoint 3)
+   ⬜ FASE 4: Plan de refactorización (checkpoint 4)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 '''
 
     return response
@@ -2536,6 +2559,19 @@ async def architecture_resume(analysis_file: str) -> str:
    - Continúa desde la TAREA ACTUAL indicada arriba
    - Lee el archivo completo si necesitas más contexto
    - No empieces de cero
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🚨 INSTRUCCIÓN OBLIGATORIA PARA CLAUDE - ANÁLISIS ARQUITECTÓNICO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+DEBES completar las 4 FASES. NO puedes abandonar sin preguntar.
+
+Si quieres abandonar o cambiar de tarea:
+1. EXPLICA por qué quieres abandonar
+2. USA AskUserQuestion para preguntar al usuario
+
+🚫 PROHIBIDO abandonar sin confirmar con el usuario.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 '''
 
     return response
@@ -2638,6 +2674,18 @@ async def architecture_checkpoint(
 
 ⚠️ Si la conversación se compacta, usa:
    philosophy_architecture_resume("{analysis_file}")
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🚨 RECUERDA: DEBES completar las 4 FASES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   {"✅" if checkpoint >= 1 else "⬜"} FASE 1: Inventario
+   {"✅" if checkpoint >= 2 else "⬜"} FASE 2: Mapa de funcionalidades
+   {"✅" if checkpoint >= 3 else "⬜"} FASE 3: Clasificación por niveles
+   {"✅" if checkpoint >= 4 else "⬜"} FASE 4: Plan de refactorización
+
+Si quieres abandonar → EXPLICA por qué + AskUserQuestion
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 '''
 
     return response

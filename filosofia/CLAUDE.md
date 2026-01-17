@@ -1,5 +1,21 @@
 # Instrucciones para Claude Code - UniversInside
 
+## REGLA PRINCIPAL: SEGUIR INSTRUCCIONES DEL MCP
+
+**OBLIGATORIO:** Cuando el MCP `philosophy` te dé una instrucción, DEBES seguirla.
+
+### Cuando el MCP dice "USA AskUserQuestion":
+1. **EXPLICA** tu argumento/opinión al usuario
+2. **USA** la herramienta AskUserQuestion
+3. **ESPERA** la decisión del usuario
+
+### PROHIBIDO:
+- Decidir por tu cuenta ignorar warnings o saltar pasos
+- Argumentar "es código estándar" sin preguntar al usuario
+- Continuar sin seguir las instrucciones del MCP
+
+---
+
 ## Filosofía de Programación Obligatoria
 
 > "Máximo impacto, menor esfuerzo — a largo plazo"
@@ -49,9 +65,10 @@ ESTRUCTURA (proyecto completo: main.tscn)
 
 ---
 
-## Flujo Obligatorio: 8 Pasos
+## Flujo Obligatorio: 9 Pasos
 
 > **"Verificar ANTES de escribir, no DESPUÉS de fallar"**
+> **"Documentar DESPUÉS de validar"**
 
 Usar las herramientas del MCP `philosophy` en orden:
 
@@ -63,8 +80,11 @@ Usar las herramientas del MCP `philosophy` en orden:
 6. **`philosophy_q6_verificar_dependencias`** - ¿Las dependencias externas existen y coinciden?
 7. **Escribir código**
 8. **`philosophy_validate`** - Validar código escrito
+9. **`philosophy_q9_documentar`** - Documentar cambios (OBLIGATORIO)
 
-El MCP bloquea si se salta un paso.
+**El MCP bloquea si se salta un paso.** Si intentas saltar:
+- DEBES explicar por qué
+- DEBES usar AskUserQuestion para preguntar al usuario
 
 ---
 
