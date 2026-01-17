@@ -34,7 +34,8 @@ SESSION_STATE = {
     "step_5": False,  # Q5: Nivel
     "step_6": False,  # Q6: Verificar dependencias
     # step_7 es escribir código (no es herramienta)
-    # step_8 es validar
+    "step_8": False,  # Validar (philosophy_validate)
+    # step_9 es documentar (philosophy_q9_documentar)
     "current_description": None,
     "current_level": None,
     "current_filename": None,
@@ -52,6 +53,7 @@ def reset_state():
     SESSION_STATE["step_4"] = False
     SESSION_STATE["step_5"] = False
     SESSION_STATE["step_6"] = False
+    SESSION_STATE["step_8"] = False
     SESSION_STATE["current_description"] = None
     SESSION_STATE["current_level"] = None
     SESSION_STATE["current_filename"] = None
@@ -82,6 +84,44 @@ def reset_architecture_state():
     ARCHITECTURE_STATE["phase"] = None
     ARCHITECTURE_STATE["project_path"] = None
     ARCHITECTURE_STATE["language"] = None
+
+
+def generar_error_paso_saltado(paso_faltante: str, paso_actual: str) -> str:
+    """Genera mensaje de error que OBLIGA a explicar y preguntar al usuario"""
+    return f"""
+╔══════════════════════════════════════════════════════════════════╗
+║  ⛔ PASO SALTADO - REQUIERE DECISIÓN DEL USUARIO                 ║
+╚══════════════════════════════════════════════════════════════════╝
+
+❌ Intentaste usar {paso_actual} sin completar {paso_faltante}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🚨 INSTRUCCIÓN OBLIGATORIA PARA CLAUDE:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PASO 1: EXPLICA tu argumento
+   Antes de preguntar, DEBES explicar al usuario POR QUÉ intentaste
+   saltar el paso. El usuario necesita tu argumento para decidir.
+
+   Ejemplo: "Intenté saltar el flujo porque [tu razón específica]"
+
+PASO 2: USA AskUserQuestion
+   Después de explicar, pregunta qué quiere hacer.
+
+   Pregunta sugerida: "¿Qué prefieres hacer?"
+   Opciones:
+   1. "Seguir el flujo" - Empezar desde {paso_faltante}
+   2. "Saltarme el flujo" - Continuar sin filosofía
+
+🚫 PROHIBIDO:
+- Preguntar SIN explicar primero tu argumento
+- Decidir por tu cuenta sin preguntar
+- Omitir la explicación de por qué querías saltar
+- Usar frases genéricas como "es estándar" sin justificar
+
+EL USUARIO NECESITA TU ARGUMENTO PARA EVALUAR SI ES VÁLIDO.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+"""
 
 
 # ============================================================
@@ -333,7 +373,10 @@ Requiere: Paso 5 completado.""",
             name="philosophy_validate",
             description="""PASO 8 (OBLIGATORIO): Valida el código escrito.
 Detecta code smells, duplicación, múltiples clases.
-Requiere: Paso 6 completado + código escrito.""",
+Requiere: Paso 6 completado + código escrito.
+
+Si hay advertencias, DEBES preguntar al usuario con AskUserQuestion.
+Usa usuario_confirmo_warnings=true solo DESPUÉS de que el usuario confirme.""",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -344,9 +387,56 @@ Requiere: Paso 6 completado + código escrito.""",
                     "filename": {
                         "type": "string",
                         "description": "Nombre del archivo"
+                    },
+                    "usuario_confirmo_warnings": {
+                        "type": "boolean",
+                        "description": "SOLO usar después de preguntar al usuario. True = usuario confirmó ignorar advertencias."
                     }
                 },
                 "required": ["code", "filename"]
+            }
+        ),
+        # Paso 9 (documentar)
+        Tool(
+            name="philosophy_q9_documentar",
+            description="""PASO 9 (OBLIGATORIO): Documenta los cambios realizados.
+
+"Documentar DESPUÉS de validar"
+
+Busca automáticamente:
+1. CHANGELOG.md para registrar el cambio
+2. README.md si cambia funcionalidad pública
+3. Otros docs en docs/ que mencionen los archivos modificados
+
+No puedes cerrar el flujo sin documentar.
+Requiere: Paso 8 (validate) completado.""",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "project_path": {
+                        "type": "string",
+                        "description": "Ruta del proyecto"
+                    },
+                    "archivos_modificados": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Lista de archivos creados/modificados"
+                    },
+                    "descripcion_cambio": {
+                        "type": "string",
+                        "description": "Descripción breve del cambio realizado"
+                    },
+                    "tipo_cambio": {
+                        "type": "string",
+                        "enum": ["añadido", "corregido", "cambiado", "eliminado"],
+                        "description": "Tipo de cambio para el CHANGELOG"
+                    },
+                    "reemplaza": {
+                        "type": "string",
+                        "description": "Qué código/docs deja obsoleto este cambio (opcional)"
+                    }
+                },
+                "required": ["project_path", "archivos_modificados", "descripcion_cambio", "tipo_cambio"]
             }
         ),
         # Auxiliar
@@ -534,9 +624,19 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         )
 
     elif name == "philosophy_validate":
-        result = await step7_validate(
+        result = await step8_validate(
             arguments["code"],
-            arguments["filename"]
+            arguments["filename"],
+            arguments.get("usuario_confirmo_warnings", False)
+        )
+
+    elif name == "philosophy_q9_documentar":
+        result = await step9_documentar(
+            arguments["project_path"],
+            arguments["archivos_modificados"],
+            arguments["descripcion_cambio"],
+            arguments["tipo_cambio"],
+            arguments.get("reemplaza")
         )
 
     elif name == "philosophy_checklist":
@@ -627,22 +727,7 @@ async def step2_reutilizacion(es_reutilizable: bool, donde: str, justificacion: 
 
     # Verificar paso anterior
     if not SESSION_STATE["step_1"]:
-        return """
-╔══════════════════════════════════════════════════════════════════╗
-║  ⛔ ERROR: PASO OBLIGATORIO OMITIDO                              ║
-╚══════════════════════════════════════════════════════════════════╝
-
-❌ DEBES completar philosophy_q1_responsabilidad PRIMERO
-
-FLUJO OBLIGATORIO:
-   1. philosophy_q1_responsabilidad  ← FALTA
-   2. philosophy_q2_reutilizacion
-   3. philosophy_q3_buscar
-   4. philosophy_q4_herencia
-   5. philosophy_q5_nivel
-   6. [Escribir código]
-   7. philosophy_validate
-"""
+        return generar_error_paso_saltado("philosophy_q1_responsabilidad", "philosophy_q2_reutilizacion")
 
     SESSION_STATE["step_2"] = True
 
@@ -1037,22 +1122,7 @@ async def step3_buscar(search_term: str, project_path: str, content_pattern: str
 
     # Verificar paso anterior
     if not SESSION_STATE["step_2"]:
-        return """
-╔══════════════════════════════════════════════════════════════════╗
-║  ⛔ ERROR: PASO OBLIGATORIO OMITIDO                              ║
-╚══════════════════════════════════════════════════════════════════╝
-
-❌ DEBES completar philosophy_q2_reutilizacion PRIMERO
-
-FLUJO OBLIGATORIO:
-   1. philosophy_q1_responsabilidad  ✅
-   2. philosophy_q2_reutilizacion    ← FALTA
-   3. philosophy_q3_buscar
-   4. philosophy_q4_herencia
-   5. philosophy_q5_nivel
-   6. [Escribir código]
-   7. philosophy_validate
-"""
+        return generar_error_paso_saltado("philosophy_q2_reutilizacion", "philosophy_q3_buscar")
 
     path = Path(project_path).expanduser().resolve()
 
@@ -1190,22 +1260,7 @@ async def step4_herencia(hereda_de: str, reutiliza: str, justificacion: str) -> 
 
     # Verificar paso anterior
     if not SESSION_STATE["step_3"]:
-        return """
-╔══════════════════════════════════════════════════════════════════╗
-║  ⛔ ERROR: PASO OBLIGATORIO OMITIDO                              ║
-╚══════════════════════════════════════════════════════════════════╝
-
-❌ DEBES completar philosophy_q3_buscar PRIMERO
-
-FLUJO OBLIGATORIO:
-   1. philosophy_q1_responsabilidad  ✅
-   2. philosophy_q2_reutilizacion    ✅
-   3. philosophy_q3_buscar           ← FALTA
-   4. philosophy_q4_herencia
-   5. philosophy_q5_nivel
-   6. [Escribir código]
-   7. philosophy_validate
-"""
+        return generar_error_paso_saltado("philosophy_q3_buscar", "philosophy_q4_herencia")
 
     SESSION_STATE["step_4"] = True
 
@@ -1313,23 +1368,7 @@ async def step5_nivel(nivel: str, filename: str, justificacion: str) -> str:
 
     # Verificar paso anterior
     if not SESSION_STATE["step_4"]:
-        return """
-╔══════════════════════════════════════════════════════════════════╗
-║  ⛔ ERROR: PASO OBLIGATORIO OMITIDO                              ║
-╚══════════════════════════════════════════════════════════════════╝
-
-❌ DEBES completar philosophy_q4_herencia PRIMERO
-
-FLUJO OBLIGATORIO:
-   1. philosophy_q1_responsabilidad  ✅
-   2. philosophy_q2_reutilizacion    ✅
-   3. philosophy_q3_buscar           ✅
-   4. philosophy_q4_herencia         ← FALTA
-   5. philosophy_q5_nivel
-   6. philosophy_q6_verificar_dependencias
-   7. [Escribir código]
-   8. philosophy_validate
-"""
+        return generar_error_paso_saltado("philosophy_q4_herencia", "philosophy_q5_nivel")
 
     language = SESSION_STATE.get("current_language", "godot")
     change_type = SESSION_STATE.get("current_change_type", "nuevo")
@@ -1472,23 +1511,7 @@ async def step6_verificar_dependencias(project_path: str, dependencies: list) ->
 
     # Verificar paso anterior
     if not SESSION_STATE["step_5"]:
-        return """
-╔══════════════════════════════════════════════════════════════════╗
-║  ⛔ ERROR: PASO OBLIGATORIO OMITIDO                              ║
-╚══════════════════════════════════════════════════════════════════╝
-
-❌ DEBES completar philosophy_q5_nivel PRIMERO
-
-FLUJO OBLIGATORIO:
-   1. philosophy_q1_responsabilidad  ✅
-   2. philosophy_q2_reutilizacion    ✅
-   3. philosophy_q3_buscar           ✅
-   4. philosophy_q4_herencia         ✅
-   5. philosophy_q5_nivel            ← FALTA
-   6. philosophy_q6_verificar_dependencias
-   7. [Escribir código]
-   8. philosophy_validate
-"""
+        return generar_error_paso_saltado("philosophy_q5_nivel", "philosophy_q6_verificar_dependencias")
 
     path = Path(project_path).expanduser().resolve()
 
@@ -1653,32 +1676,12 @@ Opciones:
     return response
 
 
-async def step7_validate(code: str, filename: str) -> str:
+async def step8_validate(code: str, filename: str, usuario_confirmo_warnings: bool = False) -> str:
     """PASO 8: Validar código escrito"""
 
     # Verificar paso anterior (ahora requiere step_6)
     if not SESSION_STATE["step_6"]:
-        return """
-╔══════════════════════════════════════════════════════════════════╗
-║  ⛔ ERROR: PASOS OBLIGATORIOS OMITIDOS                           ║
-╚══════════════════════════════════════════════════════════════════╝
-
-❌ DEBES completar los pasos 1-6 antes de validar
-
-FLUJO OBLIGATORIO (8 pasos):
-   1. philosophy_q1_responsabilidad
-   2. philosophy_q2_reutilizacion
-   3. philosophy_q3_buscar
-   4. philosophy_q4_herencia
-   5. philosophy_q5_nivel
-   6. philosophy_q6_verificar_dependencias
-   7. [Escribir código]
-   8. philosophy_validate          ← ESTÁS AQUÍ
-
-"Verificar ANTES de escribir, no DESPUÉS de fallar"
-
-⚠️ Empieza desde el paso 1.
-"""
+        return generar_error_paso_saltado("pasos 1-6", "philosophy_validate")
 
     language = SESSION_STATE.get("current_language", "godot")
     issues = []
@@ -1732,7 +1735,7 @@ FLUJO OBLIGATORIO (8 pasos):
     # Construir respuesta
     response = f"""
 ╔══════════════════════════════════════════════════════════════════╗
-║  PASO 8/8: VALIDACIÓN FINAL                                      ║
+║  PASO 8/9: VALIDACIÓN                                            ║
 ╚══════════════════════════════════════════════════════════════════╝
 
 📄 ARCHIVO: {filename}
@@ -1754,33 +1757,83 @@ FLUJO OBLIGATORIO (8 pasos):
         response += "\n"
 
     if not issues and not warnings:
+        SESSION_STATE["step_8"] = True
         response += "✅ CÓDIGO APROBADO\n\n"
         response += "El código cumple con la filosofía modular.\n\n"
-        response += """➡️ PASO 9: Documenta los cambios en docs/CHANGELOG.md
+        response += """➡️ PASO 9 (OBLIGATORIO): Usa philosophy_q9_documentar
 
-   Incluye:
-   - Qué se añadió/modificó
-   - Por qué (motivo)
-   - **Reemplaza/Obsoleta**: Si este cambio deja obsoleto código o docs anteriores
+   La herramienta buscará automáticamente:
+   - CHANGELOG.md para registrar el cambio
+   - README.md si cambia funcionalidad pública
+   - Otros docs afectados
 
    "Documentar DESPUÉS de validar"
+
+🚫 El flujo NO está completo hasta documentar.
 """
-        # Resetear estado para la próxima creación
-        reset_state()
     elif not issues:
-        response += "✅ CÓDIGO APROBADO CON ADVERTENCIAS\n\n"
-        response += "Considera las advertencias para mejorar.\n\n"
-        response += """➡️ PASO 9: Documenta los cambios en docs/CHANGELOG.md
+        # HAY WARNINGS - verificar si usuario ya confirmó
+        if usuario_confirmo_warnings:
+            # Usuario confirmó ignorar advertencias
+            SESSION_STATE["step_8"] = True
+            response += "✅ CÓDIGO APROBADO (usuario confirmó ignorar advertencias)\n\n"
+            response += """➡️ PASO 9 (OBLIGATORIO): Usa philosophy_q9_documentar
 
-   Incluye:
-   - Qué se añadió/modificó
-   - Por qué (motivo)
-   - **Reemplaza/Obsoleta**: Si este cambio deja obsoleto código o docs anteriores
+   La herramienta buscará automáticamente:
+   - CHANGELOG.md para registrar el cambio
+   - README.md si cambia funcionalidad pública
+   - Otros docs afectados
 
    "Documentar DESPUÉS de validar"
+
+🚫 El flujo NO está completo hasta documentar.
 """
-        # Resetear estado
-        reset_state()
+        else:
+            # Usuario NO ha confirmado - OBLIGAR a explicar y preguntar
+            response += """⚠️ CÓDIGO CON ADVERTENCIAS - REQUIERE DECISIÓN DEL USUARIO
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🚨 INSTRUCCIÓN OBLIGATORIA PARA CLAUDE:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PASO 1: EXPLICA tu opinión sobre cada advertencia
+   El usuario necesita saber QUÉ PIENSAS de las advertencias.
+   Para CADA advertencia, explica:
+   - ¿Es un problema real o es aceptable en este caso?
+   - ¿Por qué crees eso?
+
+   Ejemplo: "La advertencia sobre X creo que [tu opinión y razón]"
+
+PASO 2: USA AskUserQuestion
+   Después de explicar, pregunta qué quiere hacer.
+
+   Opciones:
+   1. "Ignorar y continuar" - Seguir al paso 9
+   2. "Corregir primero" - Modificar el código
+
+DESPUÉS de que el usuario responda:
+- Si IGNORA → philosophy_validate con usuario_confirmo_warnings=true
+- Si CORRIGE → Modifica y vuelve a validar
+
+🚫 PROHIBIDO:
+- Preguntar SIN explicar tu opinión sobre las advertencias
+- Decidir por tu cuenta
+- Usar frases genéricas sin justificar
+
+EL USUARIO NECESITA TU ANÁLISIS PARA DECIDIR.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+"""
+        response += """➡️ PASO 9 (OBLIGATORIO): Usa philosophy_q9_documentar
+
+   La herramienta buscará automáticamente:
+   - CHANGELOG.md para registrar el cambio
+   - README.md si cambia funcionalidad pública
+   - Otros docs afectados
+
+   "Documentar DESPUÉS de validar"
+
+🚫 El flujo NO está completo hasta documentar.
+"""
     else:
         response += """🚫 CÓDIGO NO APROBADO
 
@@ -1791,11 +1844,181 @@ El código NO cumple con: "Máximo impacto, menor esfuerzo — a largo plazo"
     return response
 
 
+async def step9_documentar(
+    project_path: str,
+    archivos_modificados: list,
+    descripcion_cambio: str,
+    tipo_cambio: str,
+    reemplaza: str = None
+) -> str:
+    """PASO 9: Documenta los cambios realizados"""
+
+    # Verificar paso anterior
+    if not SESSION_STATE["step_8"]:
+        return generar_error_paso_saltado("philosophy_validate (paso 8)", "philosophy_q9_documentar")
+
+    path = Path(project_path).expanduser().resolve()
+    fecha_hoy = datetime.now().strftime("%Y-%m-%d")
+
+    # 1. BUSCAR DOCUMENTOS AFECTADOS
+    docs_afectados = []
+    changelog_path = None
+    readme_path = None
+
+    # Buscar CHANGELOG
+    for changelog_loc in [path / "docs" / "CHANGELOG.md", path / "CHANGELOG.md"]:
+        if changelog_loc.exists():
+            changelog_path = changelog_loc
+            break
+
+    # Buscar README
+    readme_loc = path / "README.md"
+    if readme_loc.exists():
+        readme_path = readme_loc
+
+    # Buscar docs que mencionen los archivos modificados
+    for archivo in archivos_modificados:
+        archivo_name = Path(archivo).stem
+        doc_results = search_project_documentation(path, archivo_name)
+        for doc in doc_results.get("primary", [])[:3]:  # Top 3 por archivo
+            if doc["path"] not in [d["path"] for d in docs_afectados]:
+                docs_afectados.append(doc)
+
+    # 2. GENERAR TEMPLATE PARA CHANGELOG
+    tipo_label = {
+        "añadido": "Añadido",
+        "corregido": "Corregido",
+        "cambiado": "Cambiado",
+        "eliminado": "Eliminado"
+    }.get(tipo_cambio, tipo_cambio.capitalize())
+
+    archivos_str = "\n".join([f"   - `{a}`" for a in archivos_modificados])
+
+    changelog_template = f"""## [{fecha_hoy}] - {SESSION_STATE.get('current_description', descripcion_cambio)[:50]}
+
+### {tipo_label}
+- **{descripcion_cambio}**
+- Archivos:
+{archivos_str}
+"""
+
+    if reemplaza:
+        changelog_template += f"""
+### Reemplaza/Obsoleta
+- {reemplaza}
+"""
+
+    # 3. CONSTRUIR RESPUESTA
+    response = f"""
+╔══════════════════════════════════════════════════════════════════╗
+║  PASO 9/9: DOCUMENTACIÓN                                         ║
+║  "Documentar DESPUÉS de validar"                                 ║
+╚══════════════════════════════════════════════════════════════════╝
+
+📅 FECHA: {fecha_hoy}
+📝 CAMBIO: {descripcion_cambio}
+📁 ARCHIVOS: {len(archivos_modificados)}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 CHANGELOG
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+"""
+
+    if changelog_path:
+        response += f"""
+✅ Encontrado: {changelog_path.relative_to(path) if changelog_path.is_relative_to(path) else changelog_path}
+
+📝 AÑADE esta entrada al inicio del archivo:
+
+```markdown
+{changelog_template}```
+"""
+    else:
+        response += f"""
+⚠️ No encontrado. Crear en: docs/CHANGELOG.md
+
+📝 Contenido inicial:
+
+```markdown
+# Changelog
+
+{changelog_template}```
+"""
+
+    # README
+    response += """
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📖 README
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+"""
+
+    if readme_path:
+        # Verificar si el cambio afecta funcionalidad pública
+        description_lower = descripcion_cambio.lower()
+        affects_public = any(word in description_lower for word in
+            ["api", "comando", "función", "feature", "nueva", "nuevo", "añad", "interfaz", "herramienta"])
+
+        if affects_public:
+            response += f"""
+⚠️ El cambio parece afectar funcionalidad pública.
+📄 Revisa: {readme_path.relative_to(path) if readme_path.is_relative_to(path) else readme_path}
+
+   Actualiza si es necesario:
+   - Descripción de funcionalidades
+   - Instrucciones de uso
+   - Ejemplos
+"""
+        else:
+            response += """
+✅ El cambio parece interno. README probablemente no necesita actualización.
+"""
+    else:
+        response += """
+ℹ️ No hay README.md en el proyecto.
+"""
+
+    # Otros docs afectados
+    if docs_afectados:
+        response += """
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📚 OTROS DOCS QUE MENCIONAN LOS ARCHIVOS MODIFICADOS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚠️ Revisa si necesitan actualización:
+
+"""
+        for doc in docs_afectados[:5]:
+            priority_emoji = {"ALTA": "🔥", "MEDIA": "📌", "BAJA": "📎"}.get(doc.get("priority", "BAJA"), "📄")
+            response += f"   {priority_emoji} {doc['title']}\n"
+            response += f"      📁 {doc['relative_path']}\n"
+            if doc.get("relevant_sections"):
+                response += f"      📑 Secciones: {', '.join(doc['relevant_sections'][:3])}\n"
+            response += "\n"
+
+    response += """
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ PASO 9 COMPLETADO - FLUJO FINALIZADO
+
+   Recuerda actualizar la documentación manualmente.
+   El flujo está completo y listo para una nueva tarea.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+"""
+
+    # Resetear estado para la próxima creación
+    reset_state()
+
+    return response
+
+
 async def show_checklist() -> str:
     """Muestra el checklist completo"""
 
     current_step = "Ningún flujo activo"
-    if SESSION_STATE["step_6"]:
+    if SESSION_STATE["step_8"]:
+        current_step = "8 completados → Falta: Q9 Documentar"
+    elif SESSION_STATE["step_6"]:
         current_step = "6 completados → Listo para escribir código y validar"
     elif SESSION_STATE["step_5"]:
         current_step = "5/6 → Falta: Q6 Verificar dependencias"
@@ -1836,7 +2059,7 @@ async def show_checklist() -> str:
    Contenedor = lógica reutilizable en varias pantallas
    Pantalla = vista única del usuario (no reutilizable)
 
-📋 LAS 5 PREGUNTAS + VERIFICACIÓN (flujo obligatorio):
+📋 LAS 6 PREGUNTAS + VALIDACIÓN + DOCUMENTACIÓN (flujo obligatorio):
 
    {"✅" if SESSION_STATE["step_1"] else "□"} 1. ¿Esta pieza hace UNA sola cosa?
    {"✅" if SESSION_STATE["step_2"] else "□"} 2. ¿Puedo reutilizar esto en otro lugar?
@@ -1844,8 +2067,10 @@ async def show_checklist() -> str:
    {"✅" if SESSION_STATE["step_4"] else "□"} 4. ¿Si cambio la base, se actualizarán todas las instancias?
    {"✅" if SESSION_STATE["step_5"] else "□"} 5. ¿Está en el nivel correcto de la jerarquía?
    {"✅" if SESSION_STATE["step_6"] else "□"} 6. ¿Las dependencias externas existen y coinciden?
+   {"✅" if SESSION_STATE["step_8"] else "□"} 8. ¿El código está validado?
 
    "Verificar ANTES de escribir, no DESPUÉS de fallar"
+   "Documentar DESPUÉS de validar"
 
 🔧 FLUJO DE HERRAMIENTAS (9 pasos):
 
@@ -1857,9 +2082,7 @@ async def show_checklist() -> str:
    philosophy_q6_verificar_dependencias    → Paso 6
    [Escribir código]                       → Paso 7
    philosophy_validate                     → Paso 8
-   [Documentar en CHANGELOG]               → Paso 9
-
-   "Documentar DESPUÉS de validar"
+   philosophy_q9_documentar                → Paso 9 (OBLIGATORIO)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Si saltas un paso, el MCP bloquea y muestra error.

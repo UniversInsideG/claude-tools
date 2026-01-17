@@ -53,26 +53,23 @@ Siguiendo el diseño de los pasos anteriores y usando las firmas verificadas
 ### PASO 8: `philosophy_validate`
 Valida el código escrito
 
-### PASO 9: Documentar cambios
-Después de validar, actualiza la documentación:
-- **CHANGELOG.md**: Registra qué se hizo y por qué
-- **Ubicación**: `docs/CHANGELOG.md` del proyecto
-- **Formato**: Fecha, categoría, descripción, **qué reemplaza**
+### PASO 9: `philosophy_q9_documentar` (OBLIGATORIO)
+Pregunta: ¿Está documentado el cambio?
+- Usa la herramienta `philosophy_q9_documentar`
+- Parámetros:
+  - `project_path`: Ruta del proyecto
+  - `archivos_modificados`: Lista de archivos creados/modificados
+  - `descripcion_cambio`: Descripción breve del cambio
+  - `tipo_cambio`: añadido/corregido/cambiado/eliminado
+  - `reemplaza`: (opcional) Qué código/docs deja obsoleto
 
-```markdown
-## [FECHA] - Título breve
+La herramienta busca automáticamente:
+- **CHANGELOG.md**: Genera template con fecha y descripción
+- **README.md**: Indica si necesita actualización (funcionalidad pública)
+- **Otros docs**: Lista docs que mencionan los archivos modificados
 
-### Añadido/Corregido/Cambiado
-- **Componente**: Descripción del cambio
-- **Motivo**: Por qué se hizo
-
-### Reemplaza/Obsoleta (si aplica)
-- `archivo_viejo.gd` → `archivo_nuevo.gd`
-- Documentación anterior: `docs/PLAN_VIEJO.md`
-```
-
-> Si el cambio es trivial (typo, formato), la documentación es opcional.
-> Si el cambio reemplaza algo, **SIEMPRE documentar qué queda obsoleto**.
+> El flujo NO se cierra hasta usar esta herramienta.
+> La documentación es OBLIGATORIA (excepto cambios triviales como typos).
 
 ## ARQUITECTURA (5 NIVELES = Atomic Design):
 ```
@@ -102,4 +99,4 @@ $ARGUMENTS
 ## EMPIEZA AHORA:
 Usa `philosophy_q1_responsabilidad` para comenzar el paso 1.
 
-**Flujo completo:** q1 → q2 → q3 → q4 → q5 → q6 → código → validate → **documentar**
+**Flujo completo:** q1 → q2 → q3 → q4 → q5 → q6 → código → validate → **q9_documentar**

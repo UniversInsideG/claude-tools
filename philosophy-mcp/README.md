@@ -1,4 +1,4 @@
-# Philosophy MCP Server v1.5.0
+# Philosophy MCP Server v1.6.0
 
 Servidor MCP que fuerza la filosofía de programación modular en Claude Code.
 
@@ -20,7 +20,7 @@ Servidor MCP que fuerza la filosofía de programación modular en Claude Code.
 | 6 | `philosophy_q6_verificar_dependencias` | ¿Las dependencias existen? |
 | 7 | *Escribir código* | Siguiendo el diseño |
 | 8 | `philosophy_validate` | Validar código |
-| 9 | *Documentar* | Actualizar CHANGELOG |
+| 9 | `philosophy_q9_documentar` | Documentar cambios (OBLIGATORIO) |
 
 **Auxiliares:**
 - `philosophy_checklist` - Referencia rápida de las 5 preguntas y arquitectura
@@ -42,6 +42,23 @@ Servidor MCP que fuerza la filosofía de programación modular en Claude Code.
 
 ---
 
+## Novedades v1.6.0
+
+### Paso 9: Herramienta obligatoria `philosophy_q9_documentar`
+- **Ya no es manual** - ahora es una herramienta MCP obligatoria
+- Busca automáticamente docs afectados:
+  - CHANGELOG.md para registrar el cambio
+  - README.md si cambia funcionalidad pública
+  - Otros docs que mencionen los archivos modificados
+- Genera template de CHANGELOG listo para copiar
+- El flujo **no se cierra** hasta usar esta herramienta
+
+### Cambios en `philosophy_validate`
+- Ya no resetea el estado del flujo
+- Indica usar `philosophy_q9_documentar` como siguiente paso
+
+---
+
 ## Novedades v1.5.0
 
 ### Paso 3: Jerarquización de documentación
@@ -54,10 +71,6 @@ Servidor MCP que fuerza la filosofía de programación modular en Claude Code.
 - Prioriza **comportamiento** sobre nomenclatura
 - Legacy: documenta como deuda técnica (no bloquea)
 - Código nuevo: exige nomenclatura correcta
-
-### Paso 9: Documentar (NUEVO)
-- Después de validar, documentar en CHANGELOG
-- Incluir sección "Reemplaza/Obsoleta" si aplica
 
 ### /arquitectura: Búsqueda en disco
 - Encuentra análisis existentes al iniciar nueva sesión
@@ -166,7 +179,7 @@ Claude ejecuta automáticamente:
 6. philosophy_q6_verificar_dependencias → Verifica que existen
 7. [Escribe el código]
 8. philosophy_validate → Valida el código
-9. [Documenta en CHANGELOG]
+9. philosophy_q9_documentar → Documenta cambios (genera template)
 ```
 
 ### Análisis arquitectónico con /arquitectura

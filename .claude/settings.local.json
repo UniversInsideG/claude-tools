@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__philosophy__philosophy_q1_responsabilidad",
+      "mcp__philosophy__philosophy_q2_reutilizacion",
+      "mcp__philosophy__philosophy_q3_buscar",
+      "mcp__philosophy__philosophy_q4_herencia",
+      "mcp__philosophy__philosophy_q5_nivel",
+      "mcp__philosophy__philosophy_q6_verificar_dependencias"
+    ]
+  }
+}

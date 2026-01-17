@@ -1,5 +1,57 @@
 # Changelog - Philosophy MCP
 
+## [2026-01-17] - Claude debe explicar POR QUÉ quiere saltar pasos
+
+### Cambiado
+- **TODOS los pasos** ahora obligan a Claude a:
+  1. EXPLICAR su argumento de por qué quiere saltar el paso
+  2. PREGUNTAR al usuario con AskUserQuestion
+- **Warnings** también requieren que Claude explique su opinión sobre cada advertencia
+- Nueva función `generar_error_paso_saltado()` con instrucciones de 2 pasos
+- Nuevo parámetro `usuario_confirmo_warnings` para confirmar después de preguntar
+
+### Motivo
+Claude decidía por su cuenta saltarse pasos sin explicar por qué.
+Ahora el usuario puede evaluar el argumento de Claude antes de decidir.
+
+### Flujo cuando se salta un paso
+1. MCP detecta paso saltado
+2. Claude EXPLICA: "Intenté saltar porque [razón específica]"
+3. Claude PREGUNTA con AskUserQuestion
+4. Usuario decide con información completa
+
+---
+
+## [2026-01-16] - Herramienta philosophy_q9_documentar obligatoria
+
+### Añadido
+- **`philosophy_q9_documentar`**: Nueva herramienta obligatoria para el paso 9
+- **Búsqueda automática** de docs afectados:
+  - CHANGELOG.md para registrar el cambio
+  - README.md si cambia funcionalidad pública
+  - Otros docs en docs/ que mencionen los archivos modificados
+- **Template de CHANGELOG** generado automáticamente con fecha, tipo y archivos
+- **`step_8`** en SESSION_STATE para tracking de validación
+- **Flujo ahora es 9 pasos obligatorios** con herramientas MCP (no manual)
+
+### Cambiado
+- `philosophy_validate` ya NO resetea estado - ahora marca `step_8 = True`
+- `philosophy_validate` indica usar `philosophy_q9_documentar` (no documentación manual)
+- `show_checklist` muestra `philosophy_q9_documentar` como paso 9 obligatorio
+- Renombrada `step7_validate` → `step8_validate` internamente
+
+### Motivo
+El paso 9 de documentación existía pero era manual (solo un recordatorio).
+Ahora es una herramienta MCP que:
+1. Obliga a documentar (no puedes cerrar el flujo sin usarla)
+2. Busca automáticamente qué docs actualizar
+3. Genera templates listos para copiar
+
+### Reemplaza
+- Comportamiento anterior: `philosophy_validate` reseteaba estado y solo mostraba recordatorio
+
+---
+
 ## [2026-01-16] - Sistema de jerarquización de documentación
 
 ### Añadido
