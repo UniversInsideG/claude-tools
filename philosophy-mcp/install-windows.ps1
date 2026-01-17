@@ -1,8 +1,8 @@
-# Instalador de Philosophy MCP para Windows (v1.5.0)
+# Instalador de Philosophy MCP para Windows (v1.6.0)
 # Ejecutar como: powershell -ExecutionPolicy Bypass -File install-windows.ps1
 
 Write-Host ""
-Write-Host "=== Instalador Philosophy MCP v1.5.0 ===" -ForegroundColor Cyan
+Write-Host "=== Instalador Philosophy MCP v1.6.0 ===" -ForegroundColor Cyan
 Write-Host ""
 
 # Verificar Python
@@ -134,11 +134,12 @@ Write-Host "  - Comando: /filosofia (flujo de 9 pasos)"
 Write-Host "  - Comando: /arquitectura (analisis global)"
 Write-Host "  - Instrucciones: CLAUDE.md"
 Write-Host ""
-Write-Host "Novedades v1.5.0:" -ForegroundColor Cyan
-Write-Host "  - Paso 9: Documentar cambios despues de validar"
-Write-Host "  - Jerarquizacion de documentacion en paso 3"
-Write-Host "  - Q5 valida comportamiento, no solo nomenclatura"
-Write-Host "  - Busqueda de analisis existentes en disco"
+Write-Host "Novedades v1.6.0:" -ForegroundColor Cyan
+Write-Host "  - Paso 9: philosophy_q9_documentar OBLIGATORIO (herramienta MCP)"
+Write-Host "  - Claude EXPLICA por que quiere saltar pasos antes de preguntar"
+Write-Host "  - Warnings requieren confirmacion del usuario"
+Write-Host "  - Analisis arquitectonico protegido (no pierde el hilo)"
+Write-Host "  - CLAUDE.md reforzado con REGLA PRINCIPAL"
 Write-Host ""
 Write-Host "Proximos pasos:" -ForegroundColor Yellow
 Write-Host "  1. Reinicia Claude Code"

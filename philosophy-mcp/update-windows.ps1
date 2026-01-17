@@ -1,8 +1,8 @@
-# Actualizador de Philosophy MCP para Windows (v1.5.0)
+# Actualizador de Philosophy MCP para Windows (v1.6.0)
 # Ejecutar como: powershell -ExecutionPolicy Bypass -File update-windows.ps1
 
 Write-Host ""
-Write-Host "=== Actualizador Philosophy MCP v1.5.0 ===" -ForegroundColor Cyan
+Write-Host "=== Actualizador Philosophy MCP v1.6.0 ===" -ForegroundColor Cyan
 Write-Host ""
 
 # Obtener rutas
@@ -102,27 +102,30 @@ if ($claudeProcesses) {
 Write-Host ""
 Write-Host "=== ACTUALIZACION COMPLETADA ===" -ForegroundColor Green
 Write-Host ""
-Write-Host "Novedades v1.5.0:" -ForegroundColor Cyan
+Write-Host "Novedades v1.6.0:" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "  PASO 3 - Jerarquizacion de documentacion:" -ForegroundColor White
-Write-Host "    - Busca en .claude/ y docs/ del proyecto"
-Write-Host "    - Ordena por: tipo + fecha + relevancia"
-Write-Host "    - Detecta versiones superseded del mismo tema"
-Write-Host "    - Indicadores: ALTA/MEDIA/BAJA prioridad"
+Write-Host "  PASO 9 - Herramienta OBLIGATORIA:" -ForegroundColor White
+Write-Host "    - philosophy_q9_documentar ahora es herramienta MCP"
+Write-Host "    - Busca automaticamente CHANGELOG, README y docs afectados"
+Write-Host "    - El flujo NO se cierra hasta documentar"
 Write-Host ""
-Write-Host "  PASO 9 - Documentar (NUEVO):" -ForegroundColor White
-Write-Host "    - Despues de validar, documentar en CHANGELOG"
-Write-Host "    - Incluir seccion 'Reemplaza/Obsoleta'"
-Write-Host "    - Maxima: 'Documentar DESPUES de validar'"
+Write-Host "  SALTAR PASOS - Explicacion obligatoria:" -ForegroundColor White
+Write-Host "    - Claude EXPLICA su argumento antes de preguntar"
+Write-Host "    - Usuario evalua la razon con informacion completa"
+Write-Host "    - AskUserQuestion OBLIGATORIO para decisiones"
 Write-Host ""
-Write-Host "  Q5 - Valida comportamiento:" -ForegroundColor White
-Write-Host "    - Prioriza comportamiento sobre nomenclatura"
-Write-Host "    - Legacy: documenta como deuda tecnica"
-Write-Host "    - Nuevo: exige nomenclatura correcta"
+Write-Host "  WARNINGS - Confirmacion del usuario:" -ForegroundColor White
+Write-Host "    - Warnings ya no se saltan automaticamente"
+Write-Host "    - Claude debe usar AskUserQuestion"
+Write-Host "    - Usuario decide si ignorar o corregir"
 Write-Host ""
-Write-Host "  /arquitectura - Busqueda en disco:" -ForegroundColor White
-Write-Host "    - Encuentra analisis existentes al iniciar"
-Write-Host "    - Busca recursivamente en .claude/"
+Write-Host "  ARQUITECTURA - Flujo protegido:" -ForegroundColor White
+Write-Host "    - Instrucciones reforzadas en las 4 fases"
+Write-Host "    - Claude no puede abandonar sin completar"
+Write-Host ""
+Write-Host "  CLAUDE.md - REGLA PRINCIPAL:" -ForegroundColor White
+Write-Host "    - 'SEGUIR INSTRUCCIONES DEL MCP' reforzado"
+Write-Host "    - Prohibido decidir por cuenta propia"
 Write-Host ""
 Write-Host "Para verificar:" -ForegroundColor Yellow
 Write-Host "  1. Abre Claude Code"
