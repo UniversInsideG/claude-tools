@@ -1,5 +1,18 @@
 # Changelog - Philosophy MCP
 
+## [2026-01-17] - Arquitectura completa activa /filosofia automáticamente
+
+### Corregido
+- Cuando `architecture_checkpoint` guarda checkpoint 4, muestra instrucción obligatoria de usar `/filosofia`
+- Cuando `architecture_resume` retoma análisis con checkpoint >= 4, también muestra la instrucción
+- Mensaje claro: "ANÁLISIS COMPLETO - AHORA IMPLEMENTAR CON /filosofia"
+
+### Motivo
+Claude terminaba el análisis arquitectónico y pasaba a implementar sin usar el flujo de filosofía.
+Ahora el MCP le recuerda que CADA tarea del plan debe pasar por los 9 pasos.
+
+---
+
 ## [2026-01-17] - CLAUDE.md reforzado con regla principal
 
 ### Añadido
