@@ -53,9 +53,24 @@ Servidor MCP que fuerza la filosofía de programación modular en Claude Code.
 - Genera template de CHANGELOG listo para copiar
 - El flujo **no se cierra** hasta usar esta herramienta
 
-### Cambios en `philosophy_validate`
-- Ya no resetea el estado del flujo
-- Indica usar `philosophy_q9_documentar` como siguiente paso
+### Claude explica antes de saltar pasos
+- Si Claude quiere saltar un paso, **DEBE explicar** su argumento
+- Luego **DEBE usar AskUserQuestion** para que el usuario decida
+- El usuario evalúa con información completa
+
+### Warnings requieren confirmación
+- Warnings ya no se saltan automáticamente
+- Claude debe usar AskUserQuestion para cada warning
+- Usuario decide si ignorar o corregir
+
+### Análisis arquitectónico protegido
+- Instrucciones reforzadas en las 4 fases
+- Claude no puede abandonar sin completar o explicar
+
+### CLAUDE.md con REGLA PRINCIPAL
+- Nueva sección: "SEGUIR INSTRUCCIONES DEL MCP"
+- Lista de PROHIBIDO para Claude
+- Refuerza que MCP solo devuelve texto, no fuerza comportamiento
 
 ---
 
