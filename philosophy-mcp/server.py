@@ -2527,6 +2527,24 @@ async def architecture_resume(analysis_file: str) -> str:
     title_match = re.search(r'^# Análisis Arquitectónico:\s*(.+)$', content, re.MULTILINE)
     project_name = title_match.group(1) if title_match else "Proyecto"
 
+    # Instrucción especial cuando análisis está completo (checkpoint >= 4)
+    instruccion_implementacion = ""
+    if checkpoint >= 4:
+        instruccion_implementacion = """
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🚨 ANÁLISIS COMPLETO - AHORA IMPLEMENTAR CON /filosofia
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+OBLIGATORIO: Para CADA tarea del plan de refactorización:
+   1. USA philosophy_q1_responsabilidad (o /filosofia)
+   2. Sigue el flujo completo de 9 pasos
+   3. NO escribas código sin pasar por filosofía
+
+El análisis arquitectónico identificó QUÉ cambiar.
+La filosofía asegura CÓMO cambiarlo correctamente.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+"""
+
     response = f'''
 ╔══════════════════════════════════════════════════════════════════╗
 ║  ANÁLISIS ARQUITECTÓNICO RETOMADO                                ║
@@ -2559,7 +2577,7 @@ async def architecture_resume(analysis_file: str) -> str:
    - Continúa desde la TAREA ACTUAL indicada arriba
    - Lee el archivo completo si necesitas más contexto
    - No empieces de cero
-
+{instruccion_implementacion}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🚨 INSTRUCCIÓN OBLIGATORIA PARA CLAUDE - ANÁLISIS ARQUITECTÓNICO
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -2659,6 +2677,24 @@ async def architecture_checkpoint(
     ARCHITECTURE_STATE["checkpoint"] = checkpoint
     ARCHITECTURE_STATE["phase"] = phase
 
+    # Instrucción especial cuando checkpoint 4 está completo
+    instruccion_implementacion = ""
+    if checkpoint >= 4:
+        instruccion_implementacion = """
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🚨 ANÁLISIS COMPLETO - AHORA IMPLEMENTAR CON /filosofia
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+OBLIGATORIO: Para CADA tarea del plan de refactorización:
+   1. USA philosophy_q1_responsabilidad (o /filosofia)
+   2. Sigue el flujo completo de 9 pasos
+   3. NO escribas código sin pasar por filosofía
+
+El análisis arquitectónico identificó QUÉ cambiar.
+La filosofía asegura CÓMO cambiarlo correctamente.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+"""
+
     response = f'''
 ╔══════════════════════════════════════════════════════════════════╗
 ║  CHECKPOINT {checkpoint} GUARDADO                                         ║
@@ -2686,7 +2722,7 @@ async def architecture_checkpoint(
 
 Si quieres abandonar → EXPLICA por qué + AskUserQuestion
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-'''
+{instruccion_implementacion}'''
 
     return response
 
