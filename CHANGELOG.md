@@ -4,6 +4,48 @@ Historial de cambios del MCP de Filosofía de Programación UniversInside.
 
 ---
 
+## [1.7.0] - 2026-01-24
+
+### Añadido
+- **Detección de duplicación REAL en q3** (`philosophy_q3_buscar`)
+  - Enfoque híbrido: patrones sospechosos + comparación de similitud
+  - Nueva función `calcular_similitud()` usando difflib.SequenceMatcher
+  - Solo reporta duplicación si similitud entre archivos > 60%
+  - NO detecta falsos positivos (_ready/_process son normales en Godot)
+  - Niveles: alto (>80% similitud), medio (>60%), bajo
+  - Muestra: "archivo1 ↔ archivo2 (75.3% similitud)"
+  - **Instrucciones explícitas para Claude** cuando hay duplicación:
+    - "🛑 PARA - NO CONTINUES SIN RESOLVER ESTO"
+    - Obliga a ANALIZAR, EXPLICAR al usuario, y PREGUNTAR antes de q4
+    - Prohíbe explícitamente "mover a utils" como solución (es parche, no arquitectura)
+    - Claude debe usar AskUserQuestion para que el usuario decida
+
+- **Validación de coherencia en q4** (`philosophy_q4_herencia`)
+  - BLOQUEA si hay duplicación alta y el usuario elige `hereda_de: "ninguno"`
+  - Fuerza elegir: crear clase base, heredar de existente, o refactorizar primero
+  - Muestra advertencia si hay duplicación media y no hereda
+  - **Opción D: Ignorar con razón válida** - requiere palabra clave "USUARIO:"
+    - Solo permite ignorar si la justificación empieza con: USUARIO:, USER:, DECISIÓN_USUARIO:, IGNORAR:
+    - Esto garantiza que el usuario realmente decidió ignorar, no Claude
+
+- **Nuevo campo `duplication_detected`** en SESSION_STATE
+
+### Corregido
+- **Detección de funciones async en Python** (`philosophy_q6_verificar_dependencias`)
+  - El patrón regex ahora detecta `async def nombre()` además de `def nombre()`
+  - Antes fallaba silenciosamente al verificar funciones async
+
+### Archivos modificados
+- `philosophy-mcp/server.py`:
+  - Nueva función `calcular_similitud()`
+  - Nueva función `detectar_duplicacion()` con enfoque híbrido
+  - Modificado `step3_buscar()` para detectar y mostrar duplicación real
+  - Modificado `step4_herencia()` para validar coherencia
+  - Corregido regex de Python en `step6_verificar_dependencias()`
+  - Añadido `import difflib`
+
+---
+
 ## [1.6.1] - 2026-01-24
 
 ### Corregido

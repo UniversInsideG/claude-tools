@@ -11,6 +11,7 @@ Implementa 8 pasos obligatorios con 7 herramientas.
 
 import re
 import json
+import difflib
 from pathlib import Path
 from datetime import datetime
 
@@ -43,6 +44,7 @@ SESSION_STATE = {
     "current_change_type": None,  # nuevo/modificacion/bugfix/refactor
     "search_results": None,
     "verified_dependencies": None,  # Dependencias verificadas en q6
+    "duplication_detected": None,  # Resultado de detección de duplicación en q3
 }
 
 def reset_state():
@@ -61,6 +63,7 @@ def reset_state():
     SESSION_STATE["current_change_type"] = None
     SESSION_STATE["search_results"] = None
     SESSION_STATE["verified_dependencies"] = None
+    SESSION_STATE["duplication_detected"] = None
 
 
 # ============================================================
@@ -1112,6 +1115,149 @@ def search_project_documentation(project_path: Path, search_term: str) -> dict:
     }
 
 
+# ============================================================
+# DETECCIÓN DE DUPLICACIÓN (ENFOQUE HÍBRIDO)
+# ============================================================
+
+def calcular_similitud(contenido1: str, contenido2: str) -> float:
+    """
+    Calcula la similitud entre dos strings de código.
+    Retorna un valor entre 0.0 (completamente diferentes) y 1.0 (idénticos).
+    """
+    if not contenido1 or not contenido2:
+        return 0.0
+    return difflib.SequenceMatcher(None, contenido1, contenido2).ratio()
+
+
+def detectar_duplicacion(archivos: list, project_path: Path, language: str) -> dict:
+    """
+    Detecta duplicación REAL usando enfoque híbrido:
+    1. Filtra archivos con patrones sospechosos (NO métodos estándar)
+    2. Compara similitud de contenido entre archivos sospechosos
+    3. Solo reporta duplicación si similitud > 60%
+
+    Retorna:
+        {
+            "es_duplicacion": bool,
+            "nivel": "alto" | "medio" | "bajo" | None,
+            "archivos_duplicados": [(archivo1, archivo2, similitud)],
+            "patrones_comunes": [patron1, patron2, ...],
+            "recomendacion": str
+        }
+    """
+    if not archivos:
+        return {
+            "es_duplicacion": False,
+            "nivel": None,
+            "archivos_duplicados": [],
+            "patrones_comunes": [],
+            "recomendacion": None
+        }
+
+    # PASO 1: Patrones que SÍ indican código sospechoso de duplicación
+    # (NO incluye _ready/_process que son normales)
+    if language == "godot":
+        patrones_sospechosos = [
+            (r'StyleBoxFlat\.new\(\)', "StyleBox creado manualmente"),
+            (r'Color\(\s*[\d.]+\s*,\s*[\d.]+\s*,\s*[\d.]+', "Colores hardcodeados"),
+            (r'add_theme_\w+_override\s*\([^)]+\)', "Overrides de tema"),
+            (r'(HBoxContainer|VBoxContainer|TabContainer)\.new\(\)', "Containers en código"),
+            (r'var\s+\w+\s*=\s*\d+\s*#', "Constantes mágicas"),
+            (r'func\s+_crear_\w+|func\s+_setup_\w+|func\s+_init_\w+', "Funciones de setup custom"),
+        ]
+    elif language == "python":
+        patrones_sospechosos = [
+            (r'def\s+__init__\s*\(self[^)]*\):\s*\n\s+self\.\w+\s*=', "Init con atributos"),
+            (r'def\s+(handle_|process_|create_)\w+', "Funciones handler/process/create"),
+            (r'@(app|router)\.(get|post|put|delete)\s*\([^)]+\)', "Endpoints con ruta"),
+            (r'class\s+\w+(Service|Manager|Handler|Controller)', "Clases Service/Manager"),
+        ]
+    else:
+        patrones_sospechosos = [
+            (r'function\s+(handle|create|process|init)\w+', "Funciones con prefijo común"),
+            (r'class\s+\w+(Service|Manager|Handler|Controller)', "Clases Service/Manager"),
+        ]
+
+    # PASO 2: Filtrar archivos que tienen patrones sospechosos
+    archivos_sospechosos = []
+    patrones_encontrados = {}
+
+    for archivo in archivos[:15]:  # Analizar hasta 15 archivos
+        try:
+            content = archivo.read_text(encoding='utf-8', errors='ignore')
+
+            for patron, descripcion in patrones_sospechosos:
+                if re.search(patron, content, re.MULTILINE):
+                    archivos_sospechosos.append({
+                        "archivo": archivo,
+                        "contenido": content,
+                        "patron": descripcion
+                    })
+                    patrones_encontrados[descripcion] = patrones_encontrados.get(descripcion, 0) + 1
+                    break  # Un archivo solo cuenta una vez
+        except:
+            pass
+
+    # Si menos de 2 archivos sospechosos, no hay duplicación posible
+    if len(archivos_sospechosos) < 2:
+        return {
+            "es_duplicacion": False,
+            "nivel": None,
+            "archivos_duplicados": [],
+            "patrones_comunes": [],
+            "recomendacion": None
+        }
+
+    # PASO 3: Comparar similitud entre archivos sospechosos
+    UMBRAL_SIMILITUD = 0.6  # 60% de similitud = duplicación
+    duplicados = []
+
+    for i, arch1 in enumerate(archivos_sospechosos):
+        for arch2 in archivos_sospechosos[i+1:]:
+            similitud = calcular_similitud(arch1["contenido"], arch2["contenido"])
+
+            if similitud >= UMBRAL_SIMILITUD:
+                duplicados.append({
+                    "archivo1": arch1["archivo"].name,
+                    "archivo2": arch2["archivo"].name,
+                    "similitud": round(similitud * 100, 1),
+                    "patron": arch1["patron"]
+                })
+
+    # PASO 4: Evaluar nivel de duplicación
+    if not duplicados:
+        # Hay archivos sospechosos pero no son similares entre sí
+        return {
+            "es_duplicacion": False,
+            "nivel": None,
+            "archivos_duplicados": [],
+            "patrones_comunes": list(patrones_encontrados.keys()),
+            "recomendacion": None
+        }
+
+    # Calcular nivel basado en similitud y cantidad
+    max_similitud = max(d["similitud"] for d in duplicados)
+    patrones_repetidos = [p for p, count in patrones_encontrados.items() if count > 1]
+
+    if max_similitud >= 80 or len(duplicados) >= 3:
+        nivel = "alto"
+        recomendacion = "CREAR CLASE BASE que ambos hereden"
+    elif max_similitud >= 60 or len(duplicados) >= 2:
+        nivel = "medio"
+        recomendacion = "Evaluar si HEREDAR del existente o EXTRAER base común"
+    else:
+        nivel = "bajo"
+        recomendacion = "Revisar si hay oportunidad de REUTILIZAR"
+
+    return {
+        "es_duplicacion": True,
+        "nivel": nivel,
+        "archivos_duplicados": [(d["archivo1"], d["archivo2"], f"{d['similitud']}%") for d in duplicados],
+        "patrones_comunes": patrones_repetidos if patrones_repetidos else [duplicados[0]["patron"]],
+        "recomendacion": recomendacion
+    }
+
+
 async def step3_buscar(search_term: str, project_path: str, content_pattern: str = None) -> str:
     """PASO 3: ¿Existe algo similar?
 
@@ -1163,6 +1309,11 @@ async def step3_buscar(search_term: str, project_path: str, content_pattern: str
     # Guardar resultados
     SESSION_STATE["search_results"] = found_by_name + found_by_content
     SESSION_STATE["step_3"] = True
+
+    # 3. DETECTAR DUPLICACIÓN
+    language = SESSION_STATE.get("current_language", "godot")
+    duplicacion = detectar_duplicacion(found_by_name + found_by_content, path, language)
+    SESSION_STATE["duplication_detected"] = duplicacion
 
     response = f"""
 ╔══════════════════════════════════════════════════════════════════╗
@@ -1236,7 +1387,106 @@ async def step3_buscar(search_term: str, project_path: str, content_pattern: str
    Puedes crear algo nuevo.
 """
     else:
-        response += """
+        # Mostrar advertencia de duplicación si se detectó
+        if duplicacion["es_duplicacion"]:
+            nivel = duplicacion["nivel"]
+            emoji = "⛔" if nivel == "alto" else "⚠️" if nivel == "medio" else "💡"
+
+            response += f"""
+{'═' * 68}
+{emoji} DUPLICACIÓN DETECTADA - NIVEL {nivel.upper()}
+{'═' * 68}
+
+📋 ARCHIVOS CON CÓDIGO SIMILAR:
+"""
+            for arch1, arch2, similitud in duplicacion["archivos_duplicados"][:5]:
+                response += f"   • {arch1} ↔ {arch2} ({similitud} similitud)\n"
+
+            if duplicacion["patrones_comunes"]:
+                response += f"\n🔍 PATRONES: {', '.join(duplicacion['patrones_comunes'])}\n"
+
+            response += f"""
+🎯 RECOMENDACIÓN: {duplicacion["recomendacion"]}
+
+"""
+            if nivel == "alto":
+                response += """
+╔══════════════════════════════════════════════════════════════════╗
+║  🛑 PARA - NO CONTINUES SIN RESOLVER ESTO                        ║
+╚══════════════════════════════════════════════════════════════════╝
+
+⛔ INSTRUCCIÓN OBLIGATORIA PARA CLAUDE:
+
+   Similitud >60% = DUPLICACIÓN REAL = DEUDA TÉCNICA
+
+   ANTES de continuar con q4, DEBES:
+
+   1. ANALIZAR qué código está duplicado entre los archivos
+   2. IDENTIFICAR la abstracción común (BaseX, AbstractX)
+   3. Estas son las opciones posibles:
+
+      A) CREAR CLASE BASE nueva
+         → hereda_de: "BaseNombreNuevo (crear)"
+         → Los archivos existentes TAMBIÉN heredarán de ella
+
+      B) HEREDAR del existente
+         → hereda_de: "ArchivoExistente"
+         → Extender funcionalidad, no duplicar
+
+      C) REFACTORIZAR PRIMERO
+         → hereda_de: "REFACTORIZAR_PRIMERO"
+         → Explicar qué refactorizar antes de crear nuevo
+
+   ❌ PROHIBIDO:
+      - Elegir "ninguno" o "copiar y adaptar"
+      - Mover funciones a utils/helpers (es un PARCHE, no arquitectura)
+      - Continuar sin resolver la duplicación
+
+   💡 PREGÚNTATE: "Si mañana cambio el estilo de tabs, ¿tendré que
+      modificar 1 archivo (base) o N archivos (duplicados)?"
+
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   📢 DESPUÉS DE ANALIZAR: EXPLICA Y PREGUNTA AL USUARIO
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   4. EXPLICA al usuario tus conclusiones:
+      - Qué código está duplicado y por qué
+      - Cuál es tu recomendación (A, B o C) y por qué
+
+   5. USA AskUserQuestion para que el usuario DECIDA:
+      - Presenta las opciones A, B, C
+      - Añade opción D: "Ignorar (tengo una razón válida)"
+
+   6. USA la respuesta del usuario en q4:
+      - Si A → hereda_de: "BaseNueva"
+      - Si B → hereda_de: "ClaseExistente"
+      - Si C → hereda_de: "REFACTORIZAR_PRIMERO"
+      - Si D → justificación: "USUARIO: [razón que dio el usuario]"
+
+   NO continues sin la confirmación del usuario.
+
+"""
+            elif nivel == "medio":
+                response += """
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ ATENCIÓN CLAUDE - Similitud detectada
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   ANTES de continuar, evalúa honestamente:
+
+   • ¿El código que voy a escribir será >50% similar al existente?
+   • Si copio y adapto, ¿estoy creando deuda técnica?
+   • ¿Puedo HEREDAR del existente en lugar de duplicar?
+   • ¿Debería EXTRAER base común primero?
+
+   Si la respuesta a cualquiera es SÍ → trata como nivel ALTO
+
+   📢 EXPLICA al usuario tu análisis y USA AskUserQuestion
+      para confirmar cómo proceder antes de continuar.
+
+"""
+        else:
+            response += """
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ⚠️ IA: EVALÚA estos resultados y decide:
    • ¿Hay DOCUMENTACIÓN con instrucciones a seguir?
@@ -1262,11 +1512,92 @@ async def step4_herencia(hereda_de: str, reutiliza: str, justificacion: str) -> 
     if not SESSION_STATE["step_3"]:
         return generar_error_paso_saltado("philosophy_q3_buscar", "philosophy_q4_herencia")
 
+    # VALIDAR COHERENCIA CON DETECCIÓN DE DUPLICACIÓN
+    duplicacion = SESSION_STATE.get("duplication_detected") or {}
+    es_duplicacion = duplicacion.get("es_duplicacion", False)
+    nivel_dup = duplicacion.get("nivel", None)
+
+    # Normalizar respuestas
+    hereda_lower = hereda_de.lower().strip()
+    reutiliza_lower = reutiliza.lower().strip()
+    justificacion_strip = justificacion.strip() if justificacion else ""
+
+    # Detectar si está evitando la decisión
+    evita_decision = hereda_lower in ["ninguno", "ninguna", "none", "no", "n/a", "-", ""]
+    no_reutiliza = reutiliza_lower in ["ninguno", "ninguna", "none", "no", "n/a", "-", ""]
+
+    # Detectar si el USUARIO decidió ignorar (debe tener palabra clave)
+    palabras_clave_usuario = ["USUARIO:", "USER:", "DECISIÓN_USUARIO:", "IGNORAR:"]
+    usuario_decidio_ignorar = any(justificacion_strip.upper().startswith(kw) for kw in palabras_clave_usuario)
+
+    # BLOQUEAR si hay duplicación ALTA, evita decisión Y no es decisión del usuario
+    if es_duplicacion and nivel_dup == "alto" and evita_decision and no_reutiliza:
+        if not usuario_decidio_ignorar:
+            return f"""
+╔══════════════════════════════════════════════════════════════════╗
+║  ⛔ BLOQUEADO: DECISIÓN INCOHERENTE CON DUPLICACIÓN DETECTADA    ║
+╚══════════════════════════════════════════════════════════════════╝
+
+En el PASO 3 se detectó DUPLICACIÓN NIVEL ALTO:
+   • Patrones: {', '.join(duplicacion.get('patrones_comunes', []))}
+   • Recomendación: {duplicacion.get('recomendacion', 'N/A')}
+
+Tu respuesta actual:
+   • hereda_de: "{hereda_de}"
+   • reutiliza_existente: "{reutiliza}"
+
+⛔ ESTO NO ES ACEPTABLE
+
+Cuando hay duplicación alta, DEBES elegir UNA de estas opciones:
+
+   A) hereda_de: "NombreClaseBase" (crear o usar base existente)
+   B) hereda_de: "ClaseExistente" + justificar extensión
+   C) hereda_de: "REFACTORIZAR_PRIMERO" + explicar qué refactorizar
+   D) hereda_de: "ninguno" + justificación que empiece con "USUARIO:"
+      → Solo si el usuario DECIDIÓ ignorar la duplicación
+
+❌ Tu justificación NO empieza con palabra clave de usuario.
+   Palabras clave válidas: {', '.join(palabras_clave_usuario)}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔄 VUELVE A LLAMAR philosophy_q4_herencia con:
+   - Una decisión válida (A, B o C), O
+   - justificación que empiece con "USUARIO: [razón del usuario]"
+"""
+
+    # ADVERTIR si el usuario decidió ignorar duplicación alta
+    advertencia = ""
+    if es_duplicacion and nivel_dup == "alto" and evita_decision and usuario_decidio_ignorar:
+        advertencia = f"""
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ USUARIO DECIDIÓ IGNORAR DUPLICACIÓN ALTA
+
+   Razón: {justificacion_strip}
+
+   ⚠️ Si esto genera deuda técnica, el usuario es responsable.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+"""
+
+    # ADVERTIR si hay duplicación MEDIA y evita decisión
+    if es_duplicacion and nivel_dup == "medio" and evita_decision and not advertencia:
+        advertencia = f"""
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ ADVERTENCIA: Se detectó duplicación MEDIA pero elegiste no heredar.
+
+   Tu justificación: {justificacion}
+
+   Asegúrate de que esto NO resulte en código duplicado.
+   Si más tarde necesitas cambiar estilos/comportamiento, tendrás
+   que modificar MÚLTIPLES archivos en lugar de UNA base.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+"""
+
     SESSION_STATE["step_4"] = True
 
     response = f"""
 ╔══════════════════════════════════════════════════════════════════╗
-║  PASO 4/7: HERENCIA                                              ║
+║  PASO 4/9: HERENCIA                                              ║
 ║  Pregunta: ¿Si cambio la base, se actualizarán las instancias?   ║
 ╚══════════════════════════════════════════════════════════════════╝
 
@@ -1275,7 +1606,7 @@ async def step4_herencia(hereda_de: str, reutiliza: str, justificacion: str) -> 
 ♻️ REUTILIZA EXISTENTE: {reutiliza}
 
 💡 JUSTIFICACIÓN: {justificacion}
-
+{advertencia}
 ✅ PASO 4 COMPLETADO
 
 ➡️ SIGUIENTE: Usa philosophy_q5_nivel
@@ -1557,7 +1888,8 @@ async def step6_verificar_dependencias(project_path: str, dependencies: list) ->
             # Buscar: [static] func nombre_funcion(params) -> return:
             pattern = rf'^(?:static\s+)?func\s+{re.escape(func_name)}\s*\(([^)]*)\)(?:\s*->\s*(\w+))?'
         elif language == "python":
-            pattern = rf'^def\s+{re.escape(func_name)}\s*\(([^)]*)\)(?:\s*->\s*(\w+))?'
+            # Buscar: [async] def nombre_funcion(params) -> return:
+            pattern = rf'^(?:async\s+)?def\s+{re.escape(func_name)}\s*\(([^)]*)\)(?:\s*->\s*(\w+))?'
         else:
             pattern = rf'function\s+{re.escape(func_name)}\s*\(([^)]*)\)'
 

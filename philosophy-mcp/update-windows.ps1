@@ -1,8 +1,8 @@
-# Actualizador de Philosophy MCP para Windows (v1.6.1)
+# Actualizador de Philosophy MCP para Windows (v1.7.0)
 # Ejecutar como: powershell -ExecutionPolicy Bypass -File update-windows.ps1
 
 Write-Host ""
-Write-Host "=== Actualizador Philosophy MCP v1.6.1 ===" -ForegroundColor Cyan
+Write-Host "=== Actualizador Philosophy MCP v1.7.0 ===" -ForegroundColor Cyan
 Write-Host ""
 
 # Obtener rutas
@@ -102,21 +102,29 @@ if ($claudeProcesses) {
 Write-Host ""
 Write-Host "=== ACTUALIZACION COMPLETADA ===" -ForegroundColor Green
 Write-Host ""
-Write-Host "Novedades v1.6.1:" -ForegroundColor Cyan
+Write-Host "Novedades v1.7.0:" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "  FIX - Funciones estaticas:" -ForegroundColor White
-Write-Host "    - philosophy_q6 ahora detecta 'static func' en Godot"
-Write-Host "    - Afecta tambien a extract_function_signatures()"
+Write-Host "  NUEVO - Deteccion de duplicacion REAL:" -ForegroundColor White
+Write-Host "    - Compara similitud de contenido entre archivos (>60%)"
+Write-Host "    - NO detecta falsos positivos (_ready/_process en Godot)"
+Write-Host "    - Muestra: 'archivo1 <-> archivo2 (78.5% similitud)'"
 Write-Host ""
-Write-Host "  (Incluye v1.6.0):" -ForegroundColor Gray
-Write-Host "    - Paso 9: philosophy_q9_documentar OBLIGATORIO"
-Write-Host "    - Claude EXPLICA antes de saltar pasos"
-Write-Host "    - Warnings requieren confirmacion del usuario"
-Write-Host "    - Analisis arquitectonico protegido"
+Write-Host "  NUEVO - Claude pregunta al usuario:" -ForegroundColor White
+Write-Host "    - ANALIZA los archivos duplicados"
+Write-Host "    - EXPLICA sus conclusiones al usuario"
+Write-Host "    - PREGUNTA que opcion elegir (A/B/C/D)"
+Write-Host ""
+Write-Host "  NUEVO - Validacion en q4:" -ForegroundColor White
+Write-Host "    - BLOQUEA si ignora duplicacion sin justificacion"
+Write-Host "    - Opcion D 'Ignorar' requiere 'USUARIO:' al inicio"
+Write-Host ""
+Write-Host "  FIX:" -ForegroundColor Gray
+Write-Host "    - Deteccion de funciones async en Python"
+Write-Host "    - Deteccion de funciones estaticas en Godot"
 Write-Host ""
 Write-Host "Para verificar:" -ForegroundColor Yellow
 Write-Host "  1. Abre Claude Code"
-Write-Host "  2. Ejecuta: /filosofia crear componente X"
-Write-Host "  3. El flujo debe tener 9 pasos"
+Write-Host "  2. Busca archivos similares con /filosofia"
+Write-Host "  3. Debe detectar duplicacion y preguntar que hacer"
 Write-Host ""
 Read-Host "Presiona Enter para salir"

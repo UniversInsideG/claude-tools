@@ -1,8 +1,8 @@
-# Instalador de Philosophy MCP para Windows (v1.6.1)
+# Instalador de Philosophy MCP para Windows (v1.7.0)
 # Ejecutar como: powershell -ExecutionPolicy Bypass -File install-windows.ps1
 
 Write-Host ""
-Write-Host "=== Instalador Philosophy MCP v1.6.1 ===" -ForegroundColor Cyan
+Write-Host "=== Instalador Philosophy MCP v1.7.0 ===" -ForegroundColor Cyan
 Write-Host ""
 
 # Verificar Python
@@ -134,12 +134,13 @@ Write-Host "  - Comando: /filosofia (flujo de 9 pasos)"
 Write-Host "  - Comando: /arquitectura (analisis global)"
 Write-Host "  - Instrucciones: CLAUDE.md"
 Write-Host ""
-Write-Host "Novedades v1.6.1:" -ForegroundColor Cyan
-Write-Host "  - Fix: Deteccion de funciones estaticas en Godot (static func)"
-Write-Host "  - Paso 9: philosophy_q9_documentar OBLIGATORIO (herramienta MCP)"
-Write-Host "  - Claude EXPLICA por que quiere saltar pasos antes de preguntar"
-Write-Host "  - Warnings requieren confirmacion del usuario"
-Write-Host "  - Analisis arquitectonico protegido (no pierde el hilo)"
+Write-Host "Novedades v1.7.0:" -ForegroundColor Cyan
+Write-Host "  - NUEVO: Deteccion de duplicacion REAL (similitud >60%)"
+Write-Host "  - NUEVO: Claude ANALIZA, EXPLICA y PREGUNTA al usuario"
+Write-Host "  - NUEVO: Bloqueo si se ignora duplicacion sin justificacion"
+Write-Host "  - NUEVO: Opcion D 'Ignorar' requiere palabra clave USUARIO:"
+Write-Host "  - Fix: Deteccion de funciones async en Python"
+Write-Host "  - Fix: Deteccion de funciones estaticas en Godot"
 Write-Host ""
 Write-Host "Proximos pasos:" -ForegroundColor Yellow
 Write-Host "  1. Reinicia Claude Code"
