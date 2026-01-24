@@ -1554,8 +1554,8 @@ async def step6_verificar_dependencias(project_path: str, dependencies: list) ->
 
         # Buscar la función según lenguaje
         if language == "godot":
-            # Buscar: func nombre_funcion(params) -> return:
-            pattern = rf'^func\s+{re.escape(func_name)}\s*\(([^)]*)\)(?:\s*->\s*(\w+))?'
+            # Buscar: [static] func nombre_funcion(params) -> return:
+            pattern = rf'^(?:static\s+)?func\s+{re.escape(func_name)}\s*\(([^)]*)\)(?:\s*->\s*(\w+))?'
         elif language == "python":
             pattern = rf'^def\s+{re.escape(func_name)}\s*\(([^)]*)\)(?:\s*->\s*(\w+))?'
         else:
@@ -2099,9 +2099,9 @@ def extract_function_signatures(content: str, language: str) -> list:
     signatures = []
 
     if language == "godot":
-        # Buscar: func nombre(params) -> tipo:
+        # Buscar: [static] func nombre(params) -> tipo:
         # Excluir funciones privadas (empiezan con _)
-        pattern = r'^func\s+([a-zA-Z][a-zA-Z0-9_]*)\s*\(([^)]*)\)(?:\s*->\s*(\w+))?'
+        pattern = r'^(?:static\s+)?func\s+([a-zA-Z][a-zA-Z0-9_]*)\s*\(([^)]*)\)(?:\s*->\s*(\w+))?'
         for match in re.finditer(pattern, content, re.MULTILINE):
             func_name = match.group(1)
             if not func_name.startswith('_'):  # Solo públicas

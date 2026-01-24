@@ -4,6 +4,18 @@ Historial de cambios del MCP de Filosofía de Programación UniversInside.
 
 ---
 
+## [1.6.1] - 2026-01-24
+
+### Corregido
+- **Detección de funciones estáticas en Godot** (`philosophy_q6_verificar_dependencias`)
+  - El patrón regex ahora detecta `static func nombre()` además de `func nombre()`
+  - Afecta también a `extract_function_signatures()` en análisis arquitectónico
+
+### Archivos modificados
+- `philosophy-mcp/server.py` - patrón regex actualizado en líneas 1558 y 2104
+
+---
+
 ## [1.3.0] - 2025-01-11
 
 ### Añadido

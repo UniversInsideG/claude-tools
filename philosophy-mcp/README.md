@@ -1,4 +1,4 @@
-# Philosophy MCP Server v1.6.0
+# Philosophy MCP Server v1.6.1
 
 Servidor MCP que fuerza la filosofía de programación modular en Claude Code.
 
@@ -39,6 +39,14 @@ Servidor MCP que fuerza la filosofía de programación modular en Claude Code.
 |---------|-------------|
 | `/filosofia [tarea]` | Activa el flujo de 9 pasos para la tarea |
 | `/arquitectura [proyecto]` | Análisis arquitectónico global |
+
+---
+
+## Novedades v1.6.1
+
+### Fix: Detección de funciones estáticas en Godot
+- `philosophy_q6_verificar_dependencias` ahora detecta `static func nombre()` además de `func nombre()`
+- También corregido en `extract_function_signatures()` para análisis arquitectónico
 
 ---
 
