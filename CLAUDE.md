@@ -69,6 +69,12 @@ Single-file Python server implementing all MCP tools:
 **Auxiliary Tools:**
 - `philosophy_checklist` - Quick reference
 
+**Duplication Detection (v1.7.0):**
+- `calcular_similitud()` - Compares content using difflib.SequenceMatcher
+- `detectar_duplicacion()` - Hybrid approach: suspicious patterns + similarity comparison
+  - Only reports if similarity >60% between files
+  - Does NOT flag false positives (_ready/_process in Godot are normal)
+
 **Architecture Analysis Tools:**
 - `philosophy_architecture_analysis` - Start global analysis
 - `philosophy_architecture_status` - View current state
@@ -79,6 +85,7 @@ Single-file Python server implementing all MCP tools:
 
 The server maintains two state dictionaries:
 - `SESSION_STATE` - Tracks the 9-step flow progress (resets per creation)
+  - Includes `duplication_detected` with similarity analysis from q3
 - `ARCHITECTURE_STATE` - Tracks architecture analysis progress (persists)
 
 ### 5-Level Architecture (equivalent to Atomic Design)
@@ -98,6 +105,9 @@ ESTRUCTURA (main.tscn)
 - **User decision required**: When skipping is attempted, Claude must explain and ask user
 - **Warnings require confirmation**: Validation warnings need explicit user approval
 - **Documentation is mandatory**: Step 9 cannot be skipped
+- **Duplication detection (v1.7.0)**: q3 detects REAL duplication (>60% similarity between files)
+- **User must decide on duplication**: Claude must ANALYZE, EXPLAIN, and ASK user before continuing
+- **Ignore requires keyword**: Option D "Ignore" requires justification starting with "USUARIO:"
 
 ## Language Support
 

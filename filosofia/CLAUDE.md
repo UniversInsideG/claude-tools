@@ -9,10 +9,18 @@
 2. **USA** la herramienta AskUserQuestion
 3. **ESPERA** la decisión del usuario
 
+### Cuando q3 detecta DUPLICACIÓN:
+1. **ANALIZA** los archivos con similitud (lee el contenido)
+2. **EXPLICA** al usuario qué código está duplicado y tu recomendación
+3. **PREGUNTA** con AskUserQuestion: A) Crear base, B) Heredar, C) Refactorizar, D) Ignorar
+4. **USA** la respuesta en q4:
+   - Si D (ignorar) → justificación debe empezar con "USUARIO: [razón]"
+
 ### PROHIBIDO:
 - Decidir por tu cuenta ignorar warnings o saltar pasos
 - Argumentar "es código estándar" sin preguntar al usuario
 - Continuar sin seguir las instrucciones del MCP
+- Mover funciones a utils/helpers como "solución" a duplicación (es PARCHE, no arquitectura)
 
 ---
 
