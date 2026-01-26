@@ -1,8 +1,8 @@
-# Instalador de Philosophy MCP para Windows (v1.7.0)
+# Instalador de Philosophy MCP para Windows (v1.8.0)
 # Ejecutar como: powershell -ExecutionPolicy Bypass -File install-windows.ps1
 
 Write-Host ""
-Write-Host "=== Instalador Philosophy MCP v1.7.0 ===" -ForegroundColor Cyan
+Write-Host "=== Instalador Philosophy MCP v1.8.0 ===" -ForegroundColor Cyan
 Write-Host ""
 
 # Verificar Python
@@ -134,13 +134,14 @@ Write-Host "  - Comando: /filosofia (flujo de 9 pasos)"
 Write-Host "  - Comando: /arquitectura (analisis global)"
 Write-Host "  - Instrucciones: CLAUDE.md"
 Write-Host ""
-Write-Host "Novedades v1.7.0:" -ForegroundColor Cyan
-Write-Host "  - NUEVO: Deteccion de duplicacion REAL (similitud >60%)"
-Write-Host "  - NUEVO: Claude ANALIZA, EXPLICA y PREGUNTA al usuario"
-Write-Host "  - NUEVO: Bloqueo si se ignora duplicacion sin justificacion"
-Write-Host "  - NUEVO: Opcion D 'Ignorar' requiere palabra clave USUARIO:"
-Write-Host "  - Fix: Deteccion de funciones async en Python"
-Write-Host "  - Fix: Deteccion de funciones estaticas en Godot"
+Write-Host "Novedades v1.8.0:" -ForegroundColor Cyan
+Write-Host "  - NUEVO: Parametro decision_usuario para desbloquear pasos"
+Write-Host "  - NUEVO: Usuario puede continuar asumiendo responsabilidad"
+Write-Host "  - NUEVO: Nomenclatura puede omitirse si usuario decide"
+Write-Host ""
+Write-Host "Incluye v1.7.0:" -ForegroundColor Gray
+Write-Host "  - Deteccion de duplicacion REAL (similitud >60%)"
+Write-Host "  - Claude ANALIZA, EXPLICA y PREGUNTA al usuario"
 Write-Host ""
 Write-Host "Proximos pasos:" -ForegroundColor Yellow
 Write-Host "  1. Reinicia Claude Code"

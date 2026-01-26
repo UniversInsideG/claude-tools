@@ -1,5 +1,29 @@
 # Changelog - Philosophy MCP
 
+## [2026-01-26] - Parámetro decision_usuario para desbloquear pasos
+
+### Añadido
+- **`decision_usuario`**: Nuevo parámetro en todas las herramientas q2-q9
+- Cuando el usuario toma una decisión consciente (aunque difiera del MCP), Claude puede llamar con `decision_usuario=true`
+- El paso anterior se marca como completado y el flujo continúa
+- El usuario asume la responsabilidad de su decisión
+
+### Cambiado
+- `generar_error_paso_saltado()` ahora indica cómo usar `decision_usuario=true`
+- Validación de nomenclatura en q5 puede omitirse con `decision_usuario=true`
+
+### Motivo
+Cuando el MCP bloqueaba un paso, no había forma de desbloquear aunque el usuario tomara una decisión consciente. El usuario respondía pero el MCP seguía bloqueando porque no reconocía la respuesta.
+
+### Flujo cuando el usuario decide continuar
+1. MCP detecta paso saltado o validación fallida
+2. Claude EXPLICA y PREGUNTA con AskUserQuestion
+3. Usuario decide continuar (asumiendo responsabilidad)
+4. Claude llama de nuevo con `decision_usuario=true`
+5. MCP marca el paso como completado y continúa
+
+---
+
 ## [2026-01-17] - Arquitectura completa activa /filosofia automáticamente
 
 ### Corregido

@@ -103,11 +103,21 @@ ESTRUCTURA (main.tscn)
 - **Flow is mandatory**: All 9 steps must be completed in order
 - **Step skipping blocked**: Server returns error if steps are skipped
 - **User decision required**: When skipping is attempted, Claude must explain and ask user
+- **User can override (v1.8.0)**: After user decides, call with `decision_usuario=true` to continue
 - **Warnings require confirmation**: Validation warnings need explicit user approval
 - **Documentation is mandatory**: Step 9 cannot be skipped
 - **Duplication detection (v1.7.0)**: q3 detects REAL duplication (>60% similarity between files)
 - **User must decide on duplication**: Claude must ANALYZE, EXPLAIN, and ASK user before continuing
 - **Ignore requires keyword**: Option D "Ignore" requires justification starting with "USUARIO:"
+
+## User Decision Parameter (v1.8.0)
+
+All tools q2-q9 support `decision_usuario: bool` parameter:
+
+- When MCP blocks a step, Claude must EXPLAIN and ASK user with AskUserQuestion
+- If user decides to continue (taking responsibility), Claude calls again with `decision_usuario=true`
+- The previous step is marked as completed and flow continues
+- This allows users to override MCP suggestions when they have valid reasons (project conventions, exceptions, etc.)
 
 ## Language Support
 

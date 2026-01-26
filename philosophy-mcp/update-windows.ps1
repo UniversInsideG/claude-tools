@@ -1,8 +1,8 @@
-# Actualizador de Philosophy MCP para Windows (v1.7.0)
+# Actualizador de Philosophy MCP para Windows (v1.8.0)
 # Ejecutar como: powershell -ExecutionPolicy Bypass -File update-windows.ps1
 
 Write-Host ""
-Write-Host "=== Actualizador Philosophy MCP v1.7.0 ===" -ForegroundColor Cyan
+Write-Host "=== Actualizador Philosophy MCP v1.8.0 ===" -ForegroundColor Cyan
 Write-Host ""
 
 # Obtener rutas
@@ -102,29 +102,25 @@ if ($claudeProcesses) {
 Write-Host ""
 Write-Host "=== ACTUALIZACION COMPLETADA ===" -ForegroundColor Green
 Write-Host ""
-Write-Host "Novedades v1.7.0:" -ForegroundColor Cyan
+Write-Host "Novedades v1.8.0:" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "  NUEVO - Deteccion de duplicacion REAL:" -ForegroundColor White
-Write-Host "    - Compara similitud de contenido entre archivos (>60%)"
-Write-Host "    - NO detecta falsos positivos (_ready/_process en Godot)"
-Write-Host "    - Muestra: 'archivo1 <-> archivo2 (78.5% similitud)'"
+Write-Host "  NUEVO - Parametro decision_usuario:" -ForegroundColor White
+Write-Host "    - Todas las herramientas q2-q9 aceptan decision_usuario=true"
+Write-Host "    - Cuando el usuario decide continuar (asumiendo responsabilidad)"
+Write-Host "    - Claude llama con decision_usuario=true para desbloquear"
+Write-Host "    - El paso se marca como completado y el flujo continua"
 Write-Host ""
-Write-Host "  NUEVO - Claude pregunta al usuario:" -ForegroundColor White
-Write-Host "    - ANALIZA los archivos duplicados"
-Write-Host "    - EXPLICA sus conclusiones al usuario"
-Write-Host "    - PREGUNTA que opcion elegir (A/B/C/D)"
+Write-Host "  NUEVO - Usuario puede omitir nomenclatura:" -ForegroundColor White
+Write-Host "    - Si el proyecto tiene convenciones diferentes"
+Write-Host "    - Usuario decide y asume la responsabilidad"
 Write-Host ""
-Write-Host "  NUEVO - Validacion en q4:" -ForegroundColor White
-Write-Host "    - BLOQUEA si ignora duplicacion sin justificacion"
-Write-Host "    - Opcion D 'Ignorar' requiere 'USUARIO:' al inicio"
-Write-Host ""
-Write-Host "  FIX:" -ForegroundColor Gray
-Write-Host "    - Deteccion de funciones async en Python"
-Write-Host "    - Deteccion de funciones estaticas en Godot"
+Write-Host "  Incluye v1.7.0:" -ForegroundColor Gray
+Write-Host "    - Deteccion de duplicacion REAL (similitud >60%)"
+Write-Host "    - Claude ANALIZA, EXPLICA y PREGUNTA al usuario"
 Write-Host ""
 Write-Host "Para verificar:" -ForegroundColor Yellow
 Write-Host "  1. Abre Claude Code"
-Write-Host "  2. Busca archivos similares con /filosofia"
-Write-Host "  3. Debe detectar duplicacion y preguntar que hacer"
+Write-Host "  2. Usa /filosofia con un paso que bloquee"
+Write-Host "  3. Responde y verifica que decision_usuario desbloquea"
 Write-Host ""
 Read-Host "Presiona Enter para salir"

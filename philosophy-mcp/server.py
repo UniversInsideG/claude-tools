@@ -123,6 +123,14 @@ PASO 2: USA AskUserQuestion
 - Usar frases genéricas como "es estándar" sin justificar
 
 EL USUARIO NECESITA TU ARGUMENTO PARA EVALUAR SI ES VÁLIDO.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💡 DESPUÉS de que el usuario responda:
+   Si el usuario decide continuar → Vuelve a llamar {paso_actual}
+   con el parámetro decision_usuario=true
+
+   Esto marca el paso como completado porque el usuario tomó
+   la decisión conscientemente (asume la responsabilidad).
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
 
@@ -238,6 +246,10 @@ Requiere: Paso 1 completado.""",
                     "justificacion": {
                         "type": "string",
                         "description": "Justifica por qué es o no reutilizable"
+                    },
+                    "decision_usuario": {
+                        "type": "boolean",
+                        "description": "True si el usuario decidió continuar (asume responsabilidad). Solo usar DESPUÉS de preguntar al usuario."
                     }
                 },
                 "required": ["es_reutilizable", "donde_reutilizar", "justificacion"]
@@ -263,6 +275,10 @@ Requiere: Paso 2 completado.""",
                     "content_pattern": {
                         "type": "string",
                         "description": "Patrón de contenido a buscar (regex opcional)"
+                    },
+                    "decision_usuario": {
+                        "type": "boolean",
+                        "description": "True si el usuario decidió continuar (asume responsabilidad). Solo usar DESPUÉS de preguntar al usuario."
                     }
                 },
                 "required": ["search_term", "project_path"]
@@ -288,6 +304,10 @@ Requiere: Paso 3 completado.""",
                     "justificacion_herencia": {
                         "type": "string",
                         "description": "Justifica la decisión de herencia"
+                    },
+                    "decision_usuario": {
+                        "type": "boolean",
+                        "description": "True si el usuario decidió continuar (asume responsabilidad). Solo usar DESPUÉS de preguntar al usuario."
                     }
                 },
                 "required": ["hereda_de", "reutiliza_existente", "justificacion_herencia"]
@@ -315,6 +335,10 @@ Requiere: Paso 4 completado.""",
                     "justificacion_nivel": {
                         "type": "string",
                         "description": "Justifica por qué es este nivel"
+                    },
+                    "decision_usuario": {
+                        "type": "boolean",
+                        "description": "True si el usuario decidió continuar (asume responsabilidad). Solo usar DESPUÉS de preguntar al usuario."
                     }
                 },
                 "required": ["nivel", "filename", "justificacion_nivel"]
@@ -366,6 +390,10 @@ Requiere: Paso 5 completado.""",
                             },
                             "required": ["file", "function"]
                         }
+                    },
+                    "decision_usuario": {
+                        "type": "boolean",
+                        "description": "True si el usuario decidió continuar (asume responsabilidad). Solo usar DESPUÉS de preguntar al usuario."
                     }
                 },
                 "required": ["project_path", "dependencies"]
@@ -394,6 +422,10 @@ Usa usuario_confirmo_warnings=true solo DESPUÉS de que el usuario confirme.""",
                     "usuario_confirmo_warnings": {
                         "type": "boolean",
                         "description": "SOLO usar después de preguntar al usuario. True = usuario confirmó ignorar advertencias."
+                    },
+                    "decision_usuario": {
+                        "type": "boolean",
+                        "description": "True si el usuario decidió continuar (asume responsabilidad). Solo usar DESPUÉS de preguntar al usuario."
                     }
                 },
                 "required": ["code", "filename"]
@@ -437,6 +469,10 @@ Requiere: Paso 8 (validate) completado.""",
                     "reemplaza": {
                         "type": "string",
                         "description": "Qué código/docs deja obsoleto este cambio (opcional)"
+                    },
+                    "decision_usuario": {
+                        "type": "boolean",
+                        "description": "True si el usuario decidió continuar (asume responsabilidad). Solo usar DESPUÉS de preguntar al usuario."
                     }
                 },
                 "required": ["project_path", "archivos_modificados", "descripcion_cambio", "tipo_cambio"]
@@ -596,41 +632,47 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         result = await step2_reutilizacion(
             arguments["es_reutilizable"],
             arguments["donde_reutilizar"],
-            arguments["justificacion"]
+            arguments["justificacion"],
+            arguments.get("decision_usuario", False)
         )
 
     elif name == "philosophy_q3_buscar":
         result = await step3_buscar(
             arguments["search_term"],
             arguments["project_path"],
-            arguments.get("content_pattern", None)
+            arguments.get("content_pattern", None),
+            arguments.get("decision_usuario", False)
         )
 
     elif name == "philosophy_q4_herencia":
         result = await step4_herencia(
             arguments["hereda_de"],
             arguments["reutiliza_existente"],
-            arguments["justificacion_herencia"]
+            arguments["justificacion_herencia"],
+            arguments.get("decision_usuario", False)
         )
 
     elif name == "philosophy_q5_nivel":
         result = await step5_nivel(
             arguments["nivel"],
             arguments["filename"],
-            arguments["justificacion_nivel"]
+            arguments["justificacion_nivel"],
+            arguments.get("decision_usuario", False)
         )
 
     elif name == "philosophy_q6_verificar_dependencias":
         result = await step6_verificar_dependencias(
             arguments["project_path"],
-            arguments["dependencies"]
+            arguments["dependencies"],
+            arguments.get("decision_usuario", False)
         )
 
     elif name == "philosophy_validate":
         result = await step8_validate(
             arguments["code"],
             arguments["filename"],
-            arguments.get("usuario_confirmo_warnings", False)
+            arguments.get("usuario_confirmo_warnings", False),
+            arguments.get("decision_usuario", False)
         )
 
     elif name == "philosophy_q9_documentar":
@@ -639,7 +681,8 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             arguments["archivos_modificados"],
             arguments["descripcion_cambio"],
             arguments["tipo_cambio"],
-            arguments.get("reemplaza")
+            arguments.get("reemplaza"),
+            arguments.get("decision_usuario", False)
         )
 
     elif name == "philosophy_checklist":
@@ -725,12 +768,15 @@ async def step1_responsabilidad(description: str, responsabilidad: str, language
     return response
 
 
-async def step2_reutilizacion(es_reutilizable: bool, donde: str, justificacion: str) -> str:
+async def step2_reutilizacion(es_reutilizable: bool, donde: str, justificacion: str, decision_usuario: bool = False) -> str:
     """PASO 2: ¿Puedo reutilizar?"""
 
     # Verificar paso anterior
     if not SESSION_STATE["step_1"]:
-        return generar_error_paso_saltado("philosophy_q1_responsabilidad", "philosophy_q2_reutilizacion")
+        if decision_usuario:
+            SESSION_STATE["step_1"] = True  # Usuario decidió, marcar como completado
+        else:
+            return generar_error_paso_saltado("philosophy_q1_responsabilidad", "philosophy_q2_reutilizacion")
 
     SESSION_STATE["step_2"] = True
 
@@ -1258,7 +1304,7 @@ def detectar_duplicacion(archivos: list, project_path: Path, language: str) -> d
     }
 
 
-async def step3_buscar(search_term: str, project_path: str, content_pattern: str = None) -> str:
+async def step3_buscar(search_term: str, project_path: str, content_pattern: str = None, decision_usuario: bool = False) -> str:
     """PASO 3: ¿Existe algo similar?
 
     Busca en:
@@ -1268,7 +1314,10 @@ async def step3_buscar(search_term: str, project_path: str, content_pattern: str
 
     # Verificar paso anterior
     if not SESSION_STATE["step_2"]:
-        return generar_error_paso_saltado("philosophy_q2_reutilizacion", "philosophy_q3_buscar")
+        if decision_usuario:
+            SESSION_STATE["step_2"] = True  # Usuario decidió, marcar como completado
+        else:
+            return generar_error_paso_saltado("philosophy_q2_reutilizacion", "philosophy_q3_buscar")
 
     path = Path(project_path).expanduser().resolve()
 
@@ -1505,12 +1554,15 @@ async def step3_buscar(search_term: str, project_path: str, content_pattern: str
     return response
 
 
-async def step4_herencia(hereda_de: str, reutiliza: str, justificacion: str) -> str:
+async def step4_herencia(hereda_de: str, reutiliza: str, justificacion: str, decision_usuario: bool = False) -> str:
     """PASO 4: ¿Se actualizan las instancias?"""
 
     # Verificar paso anterior
     if not SESSION_STATE["step_3"]:
-        return generar_error_paso_saltado("philosophy_q3_buscar", "philosophy_q4_herencia")
+        if decision_usuario:
+            SESSION_STATE["step_3"] = True  # Usuario decidió, marcar como completado
+        else:
+            return generar_error_paso_saltado("philosophy_q3_buscar", "philosophy_q4_herencia")
 
     # VALIDAR COHERENCIA CON DETECCIÓN DE DUPLICACIÓN
     duplicacion = SESSION_STATE.get("duplication_detected") or {}
@@ -1690,7 +1742,7 @@ def get_suggested_filename(nivel: str, current_filename: str, language: str) -> 
     return f"{name_without_ext}{suffix}{ext}"
 
 
-async def step5_nivel(nivel: str, filename: str, justificacion: str) -> str:
+async def step5_nivel(nivel: str, filename: str, justificacion: str, decision_usuario: bool = False) -> str:
     """PASO 5: ¿Está en el nivel correcto de la jerarquía?
 
     Valida el COMPORTAMIENTO del código (según justificación), no solo el nombre.
@@ -1699,7 +1751,10 @@ async def step5_nivel(nivel: str, filename: str, justificacion: str) -> str:
 
     # Verificar paso anterior
     if not SESSION_STATE["step_4"]:
-        return generar_error_paso_saltado("philosophy_q4_herencia", "philosophy_q5_nivel")
+        if decision_usuario:
+            SESSION_STATE["step_4"] = True  # Usuario decidió, marcar como completado
+        else:
+            return generar_error_paso_saltado("philosophy_q4_herencia", "philosophy_q5_nivel")
 
     language = SESSION_STATE.get("current_language", "godot")
     change_type = SESSION_STATE.get("current_change_type", "nuevo")
@@ -1741,8 +1796,8 @@ COMPORTAMIENTO POR NIVEL:
             nomenclatura_ok = False
             suggested_name = get_suggested_filename(nivel, filename, language)
 
-    # 3. Para código NUEVO: exigir nomenclatura
-    if change_type == "nuevo" and not nomenclatura_ok:
+    # 3. Para código NUEVO: exigir nomenclatura (a menos que usuario decida)
+    if change_type == "nuevo" and not nomenclatura_ok and not decision_usuario:
         return f"""
 ╔══════════════════════════════════════════════════════════════════╗
 ║  ⛔ ERROR: NOMENCLATURA NO VÁLIDA (código nuevo)                 ║
@@ -1837,12 +1892,15 @@ NOMENCLATURA CORRECTA:
     return response
 
 
-async def step6_verificar_dependencias(project_path: str, dependencies: list) -> str:
+async def step6_verificar_dependencias(project_path: str, dependencies: list, decision_usuario: bool = False) -> str:
     """PASO 6: Verificar dependencias externas antes de escribir código"""
 
     # Verificar paso anterior
     if not SESSION_STATE["step_5"]:
-        return generar_error_paso_saltado("philosophy_q5_nivel", "philosophy_q6_verificar_dependencias")
+        if decision_usuario:
+            SESSION_STATE["step_5"] = True  # Usuario decidió, marcar como completado
+        else:
+            return generar_error_paso_saltado("philosophy_q5_nivel", "philosophy_q6_verificar_dependencias")
 
     path = Path(project_path).expanduser().resolve()
 
@@ -2008,12 +2066,15 @@ Opciones:
     return response
 
 
-async def step8_validate(code: str, filename: str, usuario_confirmo_warnings: bool = False) -> str:
+async def step8_validate(code: str, filename: str, usuario_confirmo_warnings: bool = False, decision_usuario: bool = False) -> str:
     """PASO 8: Validar código escrito"""
 
     # Verificar paso anterior (ahora requiere step_6)
     if not SESSION_STATE["step_6"]:
-        return generar_error_paso_saltado("pasos 1-6", "philosophy_validate")
+        if decision_usuario:
+            SESSION_STATE["step_6"] = True  # Usuario decidió, marcar como completado
+        else:
+            return generar_error_paso_saltado("pasos 1-6", "philosophy_validate")
 
     language = SESSION_STATE.get("current_language", "godot")
     issues = []
@@ -2181,13 +2242,17 @@ async def step9_documentar(
     archivos_modificados: list,
     descripcion_cambio: str,
     tipo_cambio: str,
-    reemplaza: str = None
+    reemplaza: str = None,
+    decision_usuario: bool = False
 ) -> str:
     """PASO 9: Documenta los cambios realizados"""
 
     # Verificar paso anterior
     if not SESSION_STATE["step_8"]:
-        return generar_error_paso_saltado("philosophy_validate (paso 8)", "philosophy_q9_documentar")
+        if decision_usuario:
+            SESSION_STATE["step_8"] = True  # Usuario decidió, marcar como completado
+        else:
+            return generar_error_paso_saltado("philosophy_validate (paso 8)", "philosophy_q9_documentar")
 
     path = Path(project_path).expanduser().resolve()
     fecha_hoy = datetime.now().strftime("%Y-%m-%d")
