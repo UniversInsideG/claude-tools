@@ -2,12 +2,24 @@
 description: Activa la filosofía de programación modular usando MCP (9 pasos)
 ---
 
-INSTRUCCIÓN OBLIGATORIA: Antes de escribir cualquier código, DEBES seguir los 9 pasos usando las herramientas del MCP philosophy. El MCP bloquea si saltas pasos.
-
 > **"Verificar ANTES de escribir, no DESPUÉS de fallar"**
 > **"Documentar DESPUÉS de validar"**
 
-## FLUJO OBLIGATORIO (9 PASOS):
+## ANTES DE TODO: COMPRENDER LA TAREA
+
+Entender bien es la forma más rápida de resolver. Si no entiendes la tarea, todo el código que generes después necesitará corrección — más trabajo para los dos.
+
+1. **Lee la tarea completa** — sin saltar a conclusiones sobre qué crear o modificar.
+2. **Reformula al usuario lo que entendiste** — qué quiere, qué debe hacer la pieza, dónde encaja.
+3. **Identifica lo que no sabes o asumes** — ¿hay ambigüedad? ¿Hay decisiones de diseño que dependen del usuario?
+4. **Pregunta al usuario** — verifica que tu comprensión es correcta antes de iniciar el flujo. El coste de una pregunta es mínimo, el coste de diseñar en la dirección equivocada es alto.
+5. **Documenta los criterios acordados** — cuando el usuario confirme, crea un archivo `.claude/criterios_[nombre-tarea].md` en el proyecto con los criterios exactos: qué se hace, para qué, y qué debe cumplir. Sin resumir ni parafrasear — los criterios exactos tal cual se acordaron. Este archivo persiste entre sesiones y después de compactación.
+
+Solo después de documentar los criterios, continúa con el flujo de 9 pasos. El MCP bloquea si saltas pasos.
+
+---
+
+## FLUJO DE 9 PASOS:
 
 ### PASO 1: `philosophy_q1_responsabilidad`
 Pregunta: ¿Esta pieza hace UNA sola cosa?
@@ -96,7 +108,11 @@ ESTRUCTURA (main.tscn)
 ## TAREA DEL USUARIO:
 $ARGUMENTS
 
-## EMPIEZA AHORA:
-Usa `philosophy_q1_responsabilidad` para comenzar el paso 1.
+---
 
-**Flujo completo:** q1 → q2 → q3 → q4 → q5 → q6 → código → validate → **q9_documentar**
+## EMPIEZA
+
+1. Comprende la tarea (sección "ANTES DE TODO" arriba) y verifica con el usuario
+2. `philosophy_q1_responsabilidad` para comenzar el diseño
+
+**Flujo completo:** Comprender → q1 → q2 → q3 → q4 → q5 → q6 → código → validate → **q9_documentar**

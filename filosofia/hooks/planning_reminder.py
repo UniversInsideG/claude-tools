@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
-Hook de Planificación - Filosofía de Programación UniversInside
-================================================================
-Se ejecuta cuando el usuario envía un prompt.
-Detecta si se va a escribir código y recuerda los principios ANTES de que Claude piense.
+Hook de Filosofía de Código - UniversInside
+=============================================
+Se ejecuta cuando el usuario envía un prompt con intención de código.
+Recuerda la filosofía de arquitectura y el MCP philosophy.
+Complementa metacognicion.py (que se activa en todos los prompts).
 """
 import json
 import sys
@@ -19,27 +20,20 @@ CODE_KEYWORDS = [
     r'\b(refactor|arregla|fix|modifica|cambia|añade|agrega|add)\b',
 ]
 
-PHILOSOPHY_REMINDER = """
-╔══════════════════════════════════════════════════════════════════╗
-║  RECORDATORIO: Filosofía de Programación UniversInside          ║
-╠══════════════════════════════════════════════════════════════════╣
-║                                                                  ║
-║  ANTES de escribir código, DEBES verificar:                      ║
-║                                                                  ║
-║  □ NIVEL: ¿Es una Pieza, Componente, Contenedor o Estructura?   ║
-║  □ DRY: ¿Existe algo similar que pueda reutilizar/extender?     ║
-║  □ SOLID: ¿Cada pieza hace UNA sola cosa?                       ║
-║  □ NOMENCLATURA: ¿Sigue el patrón *_component, *_system, etc?   ║
-║  □ HERENCIA: ¿Debería heredar de una clase/escena base?         ║
-║  □ SIGNALS: ¿Usa signals en lugar de llamadas directas?         ║
-║                                                                  ║
-║  ARQUITECTURA:                                                   ║
-║  Pieza (atómica) → Componente → Contenedor → Estructura          ║
-║                                                                  ║
-║  EXPLICA tu razonamiento sobre estos puntos ANTES del código.   ║
-║                                                                  ║
-╚══════════════════════════════════════════════════════════════════╝
-"""
+PHILOSOPHY_REMINDER = (
+    "Código bien diseñado desde el inicio = 3 líneas en la próxima modificación. "
+    "Código rápido sin análisis = 50 líneas cada vez + deuda técnica. "
+    "Antes de escribir código, usa el MCP philosophy (9 pasos) porque cada paso existe para evitar trabajo futuro. "
+    "Identifica qué nivel es (Pieza → Componente → Contenedor → Pantalla → Estructura) "
+    "— porque el nivel determina si ya existe algo similar que reutilizar o extender. "
+    "Si es nuevo, verifica que haga UNA sola cosa y que herede de la base correcta "
+    "— si cambio la base, ¿se actualizan las instancias? "
+    "El nombre debe reflejar el nivel (*_piece, *_component, *_system, *_screen) "
+    "y la comunicación debe usar signals, no llamadas directas. "
+    "Pasa siempre el archivo completo a philosophy_validate, nunca fragmentos "
+    "— sin el archivo completo el validador genera falsos positivos que desacreditan "
+    "la herramienta y anulan el control de calidad."
+)
 
 def detect_code_intent(prompt):
     """Detecta si el prompt implica escribir código"""

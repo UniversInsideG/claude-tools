@@ -174,7 +174,7 @@ PHILOSOPHY = {
             (r"AppTheme\.style_button_secondary\s*\(", "Usa SecondaryButton en lugar de Button + AppTheme.style_button_secondary()"),
             (r"AppTheme\.style_button_icon\s*\(", "Usa IconButton en lugar de Button + AppTheme.style_button_icon()"),
             (r"AppTheme\.style_", "Considera crear un componente en lugar de aplicar estilos manualmente"),
-            (r"Color\s*\(\s*[\d.]+", "Color hardcodeado. Usa AppTheme para consistencia."),
+            # Color hardcodeado se detecta por línea en step8_validate (necesita contexto de línea)
         ],
         "python": [
             (r"def\s+\w+\([^)]*\):\s*\n(?:\s+.+\n){50,}", "Función muy larga (>50 líneas). Divide en funciones más pequeñas."),
@@ -2103,6 +2103,26 @@ async def step8_validate(code: str, filename: str, usuario_confirmo_warnings: bo
         if func_lines > 50:
             warnings.append(f"⚠️ Función muy larga ({func_lines} líneas). Considera dividir.")
 
+    # Detectar si es archivo completo o fragmento — bloquear si es fragmento
+    is_complete_file = bool(re.search(r'^(extends|class_name|@tool|##|#\s*-|import |from |<!)', code, re.MULTILINE))
+
+    if not is_complete_file:
+        SESSION_STATE["step_8"] = False
+        return f"""
+╔══════════════════════════════════════════════════════════════════╗
+║  PASO 8/9: VALIDACIÓN BLOQUEADA                                  ║
+╚══════════════════════════════════════════════════════════════════╝
+
+❌ El código no es un archivo completo.
+
+Sin el archivo completo, la validación no es fiable: no se puede verificar
+herencia, estructura, dependencias ni detectar problemas reales.
+
+**Acción:** Lee el archivo con Read y pasa todo su contenido a philosophy_validate.
+
+📄 Archivo: {filename}
+"""
+
     # Validar Q4: signals vs llamadas directas (Godot)
     if language == "godot":
         direct_calls = len(re.findall(r'get_node\(["\']/', code))
@@ -2110,9 +2130,17 @@ async def step8_validate(code: str, filename: str, usuario_confirmo_warnings: bo
         if direct_calls > 3 and signals == 0:
             warnings.append("⚠️ Herencia: Muchas llamadas directas. Usa signals para desacoplar.")
 
-        # Verificar extends
-        if not re.search(r'^extends\s+', code, re.MULTILINE):
+        # Verificar extends (solo si es archivo completo — en fragmentos da falso positivo)
+        if is_complete_file and not re.search(r'^extends\s+', code, re.MULTILINE):
             warnings.append("⚠️ Herencia: No hay 'extends'. ¿Debería heredar de algo?")
+
+        # Detectar Color hardcodeado inline (no en constantes ni variables)
+        for line in lines:
+            stripped = line.strip()
+            if re.search(r'Color\s*\(\s*[\d.]+', stripped):
+                if not re.match(r'^(const|var|@export)\s+', stripped):
+                    issues.append(f"❌ Color hardcodeado inline: `{stripped}`. Usa AppTheme o una constante nombrada.")
+                    break
 
     # Detectar código duplicado
     line_counts = {}
@@ -2750,6 +2778,33 @@ async def architecture_analysis(project_path: str, language: str, project_name: 
     claude_dir = path / ".claude"
     claude_dir.mkdir(exist_ok=True)
 
+    # Verificar que existen criterios documentados para esta tarea
+    criterios_pattern = f"criterios_{project_name}*"
+    criterios_files = list(claude_dir.glob(criterios_pattern))
+    # También buscar con nombre genérico
+    if not criterios_files:
+        criterios_files = list(claude_dir.glob("criterios_*"))
+
+    if not criterios_files:
+        return f"""
+╔══════════════════════════════════════════════════════════════════╗
+║  ANÁLISIS BLOQUEADO: FALTAN CRITERIOS                            ║
+╚══════════════════════════════════════════════════════════════════╝
+
+❌ No se encontró archivo de criterios en {claude_dir}/
+
+Antes de iniciar el análisis, documenta los criterios acordados con el usuario:
+
+1. Reformula al usuario lo que entiendes de la tarea
+2. Acuerda: qué se va a hacer, para qué, y qué debe cumplir
+3. Crea el archivo .claude/criterios_{project_name}.md con los criterios
+   exactos tal cual se acordaron — sin resumir ni parafrasear
+
+El análisis sin criterios claros produce resultados que no se pueden evaluar.
+"""
+
+    criterios_file = str(criterios_files[0])
+
     # Nombre del archivo de análisis
     date_str = datetime.now().strftime("%Y%m%d")
     analysis_filename = f"architecture_analysis_{project_name}_{date_str}.md"
@@ -2811,8 +2866,11 @@ async def architecture_analysis(project_path: str, language: str, project_name: 
 📂 RUTA: {path}
 🔧 LENGUAJE: {language}
 
-📄 ARCHIVO DE ANÁLISIS CREADO:
-   {analysis_file}
+📄 ARCHIVO DE ANÁLISIS: {analysis_file}
+📋 CRITERIOS DE LA TAREA: {criterios_file}
+
+⚠️ Evalúa cada decisión contra los criterios documentados.
+   Si algo no cumple los criterios, ajusta antes de continuar.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📊 INVENTARIO INICIAL (FASE 0)
@@ -2895,6 +2953,27 @@ async def architecture_resume(analysis_file: str) -> str:
     if not file_path.exists():
         return f"Error: El archivo {analysis_file} no existe"
 
+    # Verificar que existen criterios documentados
+    claude_dir = file_path.parent
+    criterios_files = list(claude_dir.glob("criterios_*"))
+    if not criterios_files:
+        return f"""
+╔══════════════════════════════════════════════════════════════════╗
+║  RETOMA BLOQUEADA: FALTAN CRITERIOS                              ║
+╚══════════════════════════════════════════════════════════════════╝
+
+❌ No se encontró archivo de criterios en {claude_dir}/
+
+Antes de retomar el análisis:
+
+1. Reformula al usuario lo que entiendes de la tarea
+2. Acuerda: qué se va a hacer, para qué, y qué debe cumplir
+3. Crea el archivo .claude/criterios_[tarea].md con los criterios
+   exactos tal cual se acordaron — sin resumir ni parafrasear
+
+Retomar sin criterios claros lleva a ejecutar sin dirección.
+"""
+
     content = file_path.read_text(encoding='utf-8')
 
     # Parsear METADATA
@@ -2911,6 +2990,12 @@ async def architecture_resume(analysis_file: str) -> str:
     language = language_match.group(1) if language_match else "other"
     tarea = tarea_match.group(1).strip() if tarea_match else "No especificada"
     siguiente = siguiente_match.group(1).strip() if siguiente_match else "No especificado"
+
+    # Buscar archivo de criterios
+    scope_path = Path(scope).expanduser().resolve() if scope != "DESCONOCIDO" else file_path.parent.parent
+    claude_dir = scope_path / ".claude"
+    criterios_files = list(claude_dir.glob("criterios_*")) if claude_dir.exists() else []
+    criterios_file = str(criterios_files[0]) if criterios_files else None
 
     # Actualizar estado global
     ARCHITECTURE_STATE["active"] = True
@@ -2950,6 +3035,7 @@ La filosofía asegura CÓMO cambiarlo correctamente.
 
 📁 PROYECTO: {project_name}
 📄 ARCHIVO: {file_path}
+📋 CRITERIOS: {criterios_file or "⚠️ No encontrado — crea .claude/criterios_[tarea].md antes de continuar"}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📊 ESTADO RECUPERADO
@@ -2970,7 +3056,9 @@ La filosofía asegura CÓMO cambiarlo correctamente.
 
 ✅ ESTADO CARGADO CORRECTAMENTE
 
-⚠️ IMPORTANTE:
+⚠️ ANTES DE CONTINUAR:
+   - Reformula al usuario lo que entiendes de la tarea y verifica tu comprensión
+   - Lee los criterios documentados (ver CRITERIOS arriba) y evalúa cada paso contra ellos
    - Continúa desde la TAREA ACTUAL indicada arriba
    - Lee el archivo completo si necesitas más contexto
    - No empieces de cero
@@ -3192,6 +3280,10 @@ async def architecture_status(project_path: str = None) -> str:
 
 ✅ ANÁLISIS ACTIVO EN MEMORIA
 
+⚠️ ANTES DE CONTINUAR: Reformula al usuario lo que entiendes de la tarea
+   y verifica que tu comprensión es correcta. Si hay criterios documentados
+   en .claude/criterios_*.md, léelos primero.
+
 📄 Archivo: {ARCHITECTURE_STATE["analysis_file"]}
 📊 Checkpoint: {ARCHITECTURE_STATE["checkpoint"]}
 🔄 Fase: {ARCHITECTURE_STATE["phase"]}
@@ -3219,7 +3311,11 @@ FASES DEL ANÁLISIS:
 
 ⚠️ NO HAY ANÁLISIS ACTIVO EN MEMORIA
 
-📂 PERO SE ENCONTRARON ANÁLISIS PREVIOS EN DISCO:
+⚠️ ANTES DE CONTINUAR: Reformula al usuario lo que entiendes de la tarea
+   y verifica que tu comprensión es correcta. Si hay criterios documentados
+   en .claude/criterios_*.md, léelos primero.
+
+📂 SE ENCONTRARON ANÁLISIS PREVIOS EN DISCO:
 
 '''
         for i, f in enumerate(found_files[:5], 1):
@@ -3238,11 +3334,10 @@ FASES DEL ANÁLISIS:
         response += f'''
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-➡️ PARA RETOMAR UN ANÁLISIS:
-   philosophy_architecture_resume(analysis_file="<ruta del archivo>")
-
-➡️ PARA INICIAR UNO NUEVO:
-   philosophy_architecture_analysis(project_path="...", language="...", project_name="...")
+➡️ ANTES DE RETOMAR O INICIAR:
+   1. Reformula al usuario lo que entiendes de la tarea
+   2. Verifica que existe .claude/criterios_[tarea].md — si no, créalo con el usuario
+   3. Solo entonces usa resume o analysis (se bloquearán sin criterios)
 '''
         return response
 

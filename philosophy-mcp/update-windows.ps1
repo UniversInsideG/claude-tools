@@ -1,8 +1,8 @@
-# Actualizador de Philosophy MCP para Windows (v1.8.0)
+# Actualizador de Philosophy MCP para Windows (v1.9.0)
 # Ejecutar como: powershell -ExecutionPolicy Bypass -File update-windows.ps1
 
 Write-Host ""
-Write-Host "=== Actualizador Philosophy MCP v1.8.0 ===" -ForegroundColor Cyan
+Write-Host "=== Actualizador Philosophy MCP v1.9.0 ===" -ForegroundColor Cyan
 Write-Host ""
 
 # Obtener rutas
@@ -20,9 +20,28 @@ if (-not (Test-Path $serverPath)) {
 Write-Host "1. Verificando archivos..." -ForegroundColor Yellow
 Write-Host "   server.py: OK" -ForegroundColor Green
 
+# Detectar Python
+$pythonCmd = $null
+$pythonOptions = @("python", "py", "python3")
+foreach ($cmd in $pythonOptions) {
+    try {
+        $version = & $cmd --version 2>&1
+        if ($version -match "Python 3") {
+            $pythonCmd = $cmd
+            break
+        }
+    } catch {}
+}
+
+if (-not $pythonCmd) {
+    $pythonCmd = "python3"
+    Write-Host "   ADVERTENCIA: Python no detectado, usando 'python3'" -ForegroundColor Yellow
+}
+
 # Rutas de destino
 $claudeDir = Join-Path $env:USERPROFILE ".claude"
 $commandsDir = Join-Path $claudeDir "commands"
+$hooksDir = Join-Path $claudeDir "hooks"
 
 if (-not (Test-Path $commandsDir)) {
     New-Item -ItemType Directory -Path $commandsDir -Force | Out-Null
@@ -35,7 +54,7 @@ Write-Host "2. Actualizando comandos..." -ForegroundColor Yellow
 $filosofiaSource = Join-Path $parentPath "filosofia\commands\filosofia.md"
 if (Test-Path $filosofiaSource) {
     Copy-Item $filosofiaSource (Join-Path $commandsDir "filosofia.md") -Force
-    Write-Host "   /filosofia actualizado (9 pasos)" -ForegroundColor Green
+    Write-Host "   /filosofia actualizado (9 pasos + paso 0 comprension)" -ForegroundColor Green
 } else {
     Write-Host "   /filosofia no encontrado" -ForegroundColor Yellow
 }
@@ -60,9 +79,101 @@ if (Test-Path $claudeMdSource) {
     Write-Host "   CLAUDE.md no encontrado" -ForegroundColor Gray
 }
 
+# Actualizar hooks
+Write-Host ""
+Write-Host "4. Actualizando hooks de metacognicion..." -ForegroundColor Yellow
+
+if (-not (Test-Path $hooksDir)) {
+    New-Item -ItemType Directory -Path $hooksDir -Force | Out-Null
+}
+
+$hooksSource = Join-Path $parentPath "filosofia\hooks"
+
+# Copiar metacognicion.py
+$metacogSource = Join-Path $hooksSource "metacognicion.py"
+if (Test-Path $metacogSource) {
+    Copy-Item $metacogSource (Join-Path $hooksDir "metacognicion.py") -Force
+    Write-Host "   metacognicion.py actualizado" -ForegroundColor Green
+} else {
+    Write-Host "   metacognicion.py no encontrado" -ForegroundColor Yellow
+}
+
+# Copiar planning_reminder.py
+$planningSource = Join-Path $hooksSource "planning_reminder.py"
+if (Test-Path $planningSource) {
+    Copy-Item $planningSource (Join-Path $hooksDir "planning_reminder.py") -Force
+    Write-Host "   planning_reminder.py actualizado" -ForegroundColor Green
+} else {
+    Write-Host "   planning_reminder.py no encontrado" -ForegroundColor Yellow
+}
+
+# Configurar hooks en settings.json
+Write-Host ""
+Write-Host "5. Actualizando hooks en settings.json..." -ForegroundColor Yellow
+$settingsPath = Join-Path $claudeDir "settings.json"
+$metacogPath = (Join-Path $hooksDir "metacognicion.py") -replace '\\', '\\\\'
+$planningPath = (Join-Path $hooksDir "planning_reminder.py") -replace '\\', '\\\\'
+
+$settingsConfig = @"
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$pythonCmd $metacogPath",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "$pythonCmd $planningPath",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$pythonCmd $metacogPath",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$pythonCmd $metacogPath",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
+"@
+
+if (Test-Path $settingsPath) {
+    $backup = "$settingsPath.backup"
+    Copy-Item $settingsPath $backup
+    Write-Host "   Backup creado: $backup" -ForegroundColor Gray
+}
+
+$settingsConfig | Out-File -FilePath $settingsPath -Encoding UTF8
+Write-Host "   Hooks configurados (3 eventos)" -ForegroundColor Green
+
 # Verificar configuracion MCP
 Write-Host ""
-Write-Host "4. Verificando configuracion MCP..." -ForegroundColor Yellow
+Write-Host "6. Verificando configuracion MCP..." -ForegroundColor Yellow
 $mcpJsonPath = Join-Path $claudeDir ".mcp.json"
 
 if (Test-Path $mcpJsonPath) {
@@ -80,7 +191,7 @@ if (Test-Path $mcpJsonPath) {
 
 # Cerrar procesos de Claude Code
 Write-Host ""
-Write-Host "5. Buscando procesos de Claude Code..." -ForegroundColor Yellow
+Write-Host "7. Buscando procesos de Claude Code..." -ForegroundColor Yellow
 
 $claudeProcesses = Get-Process -Name "claude*" -ErrorAction SilentlyContinue
 if ($claudeProcesses) {
@@ -102,25 +213,26 @@ if ($claudeProcesses) {
 Write-Host ""
 Write-Host "=== ACTUALIZACION COMPLETADA ===" -ForegroundColor Green
 Write-Host ""
-Write-Host "Novedades v1.8.0:" -ForegroundColor Cyan
+Write-Host "Novedades v1.9.0:" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "  NUEVO - Parametro decision_usuario:" -ForegroundColor White
-Write-Host "    - Todas las herramientas q2-q9 aceptan decision_usuario=true"
-Write-Host "    - Cuando el usuario decide continuar (asumiendo responsabilidad)"
-Write-Host "    - Claude llama con decision_usuario=true para desbloquear"
-Write-Host "    - El paso se marca como completado y el flujo continua"
+Write-Host "  NUEVO - Sistema de metacognicion:" -ForegroundColor White
+Write-Host "    - Hook metacognicion.py: comprension antes de ejecucion"
+Write-Host "    - Autoobservacion PreToolUse: verifica criterios antes de escribir"
+Write-Host "    - Autoobservacion PostToolUse: verifica criterios despues de escribir"
+Write-Host "    - Criterios persistentes en .claude/criterios_*.md"
 Write-Host ""
-Write-Host "  NUEVO - Usuario puede omitir nomenclatura:" -ForegroundColor White
-Write-Host "    - Si el proyecto tiene convenciones diferentes"
-Write-Host "    - Usuario decide y asume la responsabilidad"
+Write-Host "  NUEVO - Mejoras en MCP server:" -ForegroundColor White
+Write-Host "    - Bloqueo de validacion sin archivo completo (no mas fragmentos)"
+Write-Host "    - Deteccion de Color hardcodeado por linea (sin falsos positivos)"
+Write-Host "    - Comprension obligatoria antes del flujo (paso 0)"
+Write-Host "    - Bloqueo sin archivo de criterios en arquitectura"
 Write-Host ""
-Write-Host "  Incluye v1.7.0:" -ForegroundColor Gray
-Write-Host "    - Deteccion de duplicacion REAL (similitud >60%)"
-Write-Host "    - Claude ANALIZA, EXPLICA y PREGUNTA al usuario"
+Write-Host "  Incluye v1.8.0:" -ForegroundColor Gray
+Write-Host "    - Parametro decision_usuario para desbloquear pasos"
 Write-Host ""
 Write-Host "Para verificar:" -ForegroundColor Yellow
 Write-Host "  1. Abre Claude Code"
-Write-Host "  2. Usa /filosofia con un paso que bloquee"
-Write-Host "  3. Responde y verifica que decision_usuario desbloquea"
+Write-Host "  2. Ejecuta /mcp para verificar 'philosophy'"
+Write-Host "  3. Usa /filosofia [tarea] para probar el flujo completo"
 Write-Host ""
 Read-Host "Presiona Enter para salir"

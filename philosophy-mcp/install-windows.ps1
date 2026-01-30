@@ -1,8 +1,8 @@
-# Instalador de Philosophy MCP para Windows (v1.8.0)
+# Instalador de Philosophy MCP para Windows (v1.9.0)
 # Ejecutar como: powershell -ExecutionPolicy Bypass -File install-windows.ps1
 
 Write-Host ""
-Write-Host "=== Instalador Philosophy MCP v1.8.0 ===" -ForegroundColor Cyan
+Write-Host "=== Instalador Philosophy MCP v1.9.0 ===" -ForegroundColor Cyan
 Write-Host ""
 
 # Verificar Python
@@ -124,6 +124,101 @@ if (Test-Path $claudeMdSource) {
     Write-Host "   CLAUDE.md no encontrado (opcional)" -ForegroundColor Gray
 }
 
+# Instalar hooks de metacognicion
+Write-Host ""
+Write-Host "6. Instalando hooks de metacognicion..." -ForegroundColor Yellow
+$hooksDir = Join-Path $claudeDir "hooks"
+if (-not (Test-Path $hooksDir)) {
+    New-Item -ItemType Directory -Path $hooksDir | Out-Null
+}
+
+$hooksSource = Join-Path $parentPath "filosofia\hooks"
+$hooksInstalled = 0
+
+# Copiar metacognicion.py
+$metacogSource = Join-Path $hooksSource "metacognicion.py"
+if (Test-Path $metacogSource) {
+    Copy-Item $metacogSource (Join-Path $hooksDir "metacognicion.py") -Force
+    Write-Host "   metacognicion.py instalado" -ForegroundColor Green
+    $hooksInstalled++
+} else {
+    Write-Host "   metacognicion.py no encontrado" -ForegroundColor Yellow
+}
+
+# Copiar planning_reminder.py
+$planningSource = Join-Path $hooksSource "planning_reminder.py"
+if (Test-Path $planningSource) {
+    Copy-Item $planningSource (Join-Path $hooksDir "planning_reminder.py") -Force
+    Write-Host "   planning_reminder.py instalado" -ForegroundColor Green
+    $hooksInstalled++
+} else {
+    Write-Host "   planning_reminder.py no encontrado" -ForegroundColor Yellow
+}
+
+# Configurar hooks en settings.json
+Write-Host ""
+Write-Host "7. Configurando hooks en settings.json..." -ForegroundColor Yellow
+$settingsPath = Join-Path $claudeDir "settings.json"
+$metacogPath = (Join-Path $hooksDir "metacognicion.py") -replace '\\', '\\\\'
+$planningPath = (Join-Path $hooksDir "planning_reminder.py") -replace '\\', '\\\\'
+
+$settingsConfig = @"
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$pythonCmd $metacogPath",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "$pythonCmd $planningPath",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$pythonCmd $metacogPath",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$pythonCmd $metacogPath",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
+"@
+
+if (Test-Path $settingsPath) {
+    $backup = "$settingsPath.backup"
+    Copy-Item $settingsPath $backup
+    Write-Host "   Backup creado: $backup" -ForegroundColor Gray
+}
+
+$settingsConfig | Out-File -FilePath $settingsPath -Encoding UTF8
+Write-Host "   Hooks configurados (3 eventos)" -ForegroundColor Green
+
 # Finalizado
 Write-Host ""
 Write-Host "=== INSTALACION COMPLETADA ===" -ForegroundColor Green
@@ -133,15 +228,20 @@ Write-Host "  - MCP Server: philosophy (server.py)"
 Write-Host "  - Comando: /filosofia (flujo de 9 pasos)"
 Write-Host "  - Comando: /arquitectura (analisis global)"
 Write-Host "  - Instrucciones: CLAUDE.md"
+Write-Host "  - Hook: metacognicion.py (comprension + autoobservacion)"
+Write-Host "  - Hook: planning_reminder.py (filosofia de codigo)"
+Write-Host "  - Hooks configurados en 3 eventos: UserPromptSubmit, PreToolUse, PostToolUse"
 Write-Host ""
-Write-Host "Novedades v1.8.0:" -ForegroundColor Cyan
-Write-Host "  - NUEVO: Parametro decision_usuario para desbloquear pasos"
-Write-Host "  - NUEVO: Usuario puede continuar asumiendo responsabilidad"
-Write-Host "  - NUEVO: Nomenclatura puede omitirse si usuario decide"
+Write-Host "Novedades v1.9.0:" -ForegroundColor Cyan
+Write-Host "  - NUEVO: Hook de metacognicion (comprension antes de ejecucion)"
+Write-Host "  - NUEVO: Autoobservacion PreToolUse/PostToolUse (criterios)"
+Write-Host "  - NUEVO: Criterios persistentes en .claude/criterios_*.md"
+Write-Host "  - NUEVO: Bloqueo de validacion sin archivo completo"
+Write-Host "  - NUEVO: Deteccion de Color hardcodeado por linea"
+Write-Host "  - NUEVO: Comprension obligatoria antes del flujo (paso 0)"
 Write-Host ""
-Write-Host "Incluye v1.7.0:" -ForegroundColor Gray
-Write-Host "  - Deteccion de duplicacion REAL (similitud >60%)"
-Write-Host "  - Claude ANALIZA, EXPLICA y PREGUNTA al usuario"
+Write-Host "Incluye v1.8.0:" -ForegroundColor Gray
+Write-Host "  - Parametro decision_usuario para desbloquear pasos"
 Write-Host ""
 Write-Host "Proximos pasos:" -ForegroundColor Yellow
 Write-Host "  1. Reinicia Claude Code"

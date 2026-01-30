@@ -7,8 +7,18 @@ description: Análisis arquitectónico global para refactorizaciones (exhaustivo
 > **"El análisis ES exhaustivo, sistemático y exacto"**
 >
 > **"Verificar ANTES de escribir, no DESPUÉS de fallar"**
->
-> No es opcional. No se abrevia. No se salta nada.
+
+## ANTES DE TODO: COMPRENDER LA TAREA
+
+Entender bien es la forma más rápida de resolver. Si no entiendes la tarea, todo el análisis que generes después necesitará corrección — más trabajo para los dos.
+
+1. **Lee la tarea completa** — sin saltar a conclusiones sobre qué analizar.
+2. **Reformula al usuario lo que entendiste** — qué quiere, qué alcance tiene, qué proyectos o archivos están involucrados.
+3. **Identifica lo que no sabes o asumes** — ¿hay ambigüedad? ¿Hay decisiones que dependen del usuario?
+4. **Pregunta al usuario** — verifica que tu comprensión es correcta antes de lanzar el análisis. El coste de una pregunta es mínimo, el coste de analizar en la dirección equivocada es alto.
+5. **Documenta los criterios acordados** — cuando el usuario confirme, crea un archivo `.claude/criterios_[nombre-tarea].md` en el proyecto con los criterios exactos: qué se hace, para qué, y qué debe cumplir. Sin resumir ni parafrasear — los criterios exactos tal cual se acordaron. Este archivo persiste entre sesiones y después de compactación.
+
+Solo después de documentar los criterios, continúa con los pasos siguientes.
 
 ---
 
@@ -28,19 +38,19 @@ Si saltas un test y algo falla después, tendrás que deshacer múltiples cambio
 
 ## DETECCIÓN DE COMPACTACIÓN
 
-**ANTES DE HACER CUALQUIER COSA:**
+Después de comprender la tarea (Paso 0), verifica si hay un análisis previo:
 
 1. Usa `philosophy_architecture_status`
 2. Si hay análisis activo → continúa desde donde se quedó
 3. Si no hay análisis pero el usuario menciona continuar → usa `philosophy_architecture_resume`
 
-**NUNCA empieces de cero si ya existe un análisis.**
+No empieces de cero si ya existe un análisis.
 
 ---
 
 ## FASES DE ANÁLISIS (1-4)
 
-### FASE 0: INICIAR
+### INICIAR ANÁLISIS
 ```
 philosophy_architecture_analysis(
     project_path="ruta",
@@ -205,9 +215,10 @@ $ARGUMENTS
 
 ---
 
-## EMPIEZA AHORA
+## EMPIEZA
 
-1. `philosophy_architecture_status` → verificar estado
-2. Si no hay análisis → `philosophy_architecture_analysis`
-3. Si hay análisis → continuar desde la fase indicada
-4. En FASE 5 → **verificar dependencias (q6) + test obligatorio**
+1. Comprende la tarea (sección "ANTES DE TODO" arriba) y verifica con el usuario
+2. `philosophy_architecture_status` → verificar estado
+3. Si no hay análisis → `philosophy_architecture_analysis`
+4. Si hay análisis → continuar desde la fase indicada
+5. En FASE 5 → **verificar dependencias (q6) + test obligatorio**
