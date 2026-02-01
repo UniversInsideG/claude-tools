@@ -19,6 +19,7 @@ Historial de cambios del MCP de Filosofía de Programación UniversInside.
 - q0 y architecture_analysis usaban nombres distintos para el archivo de criterios (tarea vs project_name) → nunca coincidían
 - architecture_analysis se saltaba q0 si existía un archivo de criterios viejo de otra tarea
 - `criterios_file` no definida en `architecture_analysis` cuando q0 se completó en sesión actual → error `name 'criterios_file' is not defined`
+- Falso positivo DRY en validador: líneas `var x = funcion(...)` (llamadas a helpers) ya no se cuentan como duplicación
 
 ---
 

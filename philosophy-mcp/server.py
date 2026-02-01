@@ -2299,11 +2299,13 @@ herencia, estructura, dependencias ni detectar problemas reales.
                     issues.append(f"❌ Color hardcodeado inline: `{stripped}`. Usa AppTheme o una constante nombrada.")
                     break
 
-    # Detectar código duplicado
+    # Detectar código duplicado (excluir llamadas a helpers: "var x = func()")
     line_counts = {}
     for line in lines:
         stripped = line.strip()
         if len(stripped) > 30 and not stripped.startswith('#') and not stripped.startswith('//'):
+            if re.match(r'^var\s+\w+\s*=\s*\w+\(', stripped):
+                continue
             line_counts[stripped] = line_counts.get(stripped, 0) + 1
 
     duplicates = sum(1 for v in line_counts.values() if v >= 3)

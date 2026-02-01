@@ -17,6 +17,7 @@
 - q0_criterios guardaba archivo con nombre de tarea, architecture_analysis buscaba por project_name → nunca coincidían
 - architecture_analysis se saltaba q0 si existía cualquier archivo de criterios viejo de otra tarea
 - `criterios_file` no definida cuando `SESSION_STATE["step_0"]` era True → `architecture_analysis` fallaba con `name 'criterios_file' is not defined`
+- Falso positivo DRY en validador: líneas `var x = funcion(...)` (uso de helpers) se contaban como duplicación
 
 ---
 
