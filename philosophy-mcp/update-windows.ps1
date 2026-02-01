@@ -1,8 +1,8 @@
-# Actualizador de Philosophy MCP para Windows (v1.9.0)
+# Actualizador de Philosophy MCP para Windows (v2.1.0)
 # Ejecutar como: powershell -ExecutionPolicy Bypass -File update-windows.ps1
 
 Write-Host ""
-Write-Host "=== Actualizador Philosophy MCP v1.9.0 ===" -ForegroundColor Cyan
+Write-Host "=== Actualizador Philosophy MCP v2.1.0 ===" -ForegroundColor Cyan
 Write-Host ""
 
 # Obtener rutas
@@ -54,7 +54,7 @@ Write-Host "2. Actualizando comandos..." -ForegroundColor Yellow
 $filosofiaSource = Join-Path $parentPath "filosofia\commands\filosofia.md"
 if (Test-Path $filosofiaSource) {
     Copy-Item $filosofiaSource (Join-Path $commandsDir "filosofia.md") -Force
-    Write-Host "   /filosofia actualizado (9 pasos + paso 0 comprension)" -ForegroundColor Green
+    Write-Host "   /filosofia actualizado (10 pasos)" -ForegroundColor Green
 } else {
     Write-Host "   /filosofia no encontrado" -ForegroundColor Yellow
 }
@@ -117,6 +117,18 @@ $planningPath = (Join-Path $hooksDir "planning_reminder.py") -replace '\\', '\\\
 $settingsConfig = @"
 {
   "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Did the assistant ask a question AND also use Edit, Write, or MCP tools in the same turn? If yes: {\"ok\": false, \"reason\": \"You asked a question but used tools without waiting for the answer. Questions end the turn.\"}. If no: {\"ok\": true}.",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
     "UserPromptSubmit": [
       {
         "matcher": "",
@@ -169,17 +181,34 @@ if (Test-Path $settingsPath) {
 }
 
 $settingsConfig | Out-File -FilePath $settingsPath -Encoding UTF8
-Write-Host "   Hooks configurados (3 eventos)" -ForegroundColor Green
+Write-Host "   Hooks configurados (4 eventos: Stop, UserPromptSubmit, PreToolUse, PostToolUse)" -ForegroundColor Green
 
-# Verificar configuracion MCP
+# Verificar y actualizar configuracion MCP
 Write-Host ""
 Write-Host "6. Verificando configuracion MCP..." -ForegroundColor Yellow
 $mcpJsonPath = Join-Path $claudeDir ".mcp.json"
+$serverPathEscaped = $serverPath -replace '\\', '\\\\'
 
 if (Test-Path $mcpJsonPath) {
     $mcpContent = Get-Content $mcpJsonPath -Raw | ConvertFrom-Json
-    if ($mcpContent.philosophy) {
-        Write-Host "   Configuracion MCP: OK" -ForegroundColor Green
+    if ($mcpContent.mcpServers.philosophy) {
+        Write-Host "   Configuracion MCP: OK (formato mcpServers)" -ForegroundColor Green
+    } elseif ($mcpContent.philosophy) {
+        Write-Host "   Formato antiguo detectado, actualizando a mcpServers..." -ForegroundColor Yellow
+        $mcpConfig = @"
+{
+  "mcpServers": {
+    "philosophy": {
+      "command": "$pythonCmd",
+      "args": ["$serverPathEscaped"]
+    }
+  }
+}
+"@
+        $backup = "$mcpJsonPath.backup"
+        Copy-Item $mcpJsonPath $backup
+        $mcpConfig | Out-File -FilePath $mcpJsonPath -Encoding UTF8
+        Write-Host "   Configuracion MCP actualizada (backup: $backup)" -ForegroundColor Green
     } else {
         Write-Host "   ADVERTENCIA: 'philosophy' no encontrado en .mcp.json" -ForegroundColor Yellow
         Write-Host "   Ejecuta INSTALAR.bat para configurar" -ForegroundColor Yellow
@@ -213,22 +242,18 @@ if ($claudeProcesses) {
 Write-Host ""
 Write-Host "=== ACTUALIZACION COMPLETADA ===" -ForegroundColor Green
 Write-Host ""
-Write-Host "Novedades v1.9.0:" -ForegroundColor Cyan
+Write-Host "Novedades v2.1.0:" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "  NUEVO - Sistema de metacognicion:" -ForegroundColor White
-Write-Host "    - Hook metacognicion.py: comprension antes de ejecucion"
-Write-Host "    - Autoobservacion PreToolUse: verifica criterios antes de escribir"
-Write-Host "    - Autoobservacion PostToolUse: verifica criterios despues de escribir"
+Write-Host "  NUEVO:" -ForegroundColor White
+Write-Host "    - Paso 0 obligatorio (q0_criterios) - acordar criterios con el usuario"
+Write-Host "    - Hook Stop - bloquea si Claude pregunta y ejecuta en el mismo turno"
 Write-Host "    - Criterios persistentes en .claude/criterios_*.md"
+Write-Host "    - Conexion q0 <-> arquitectura (criterios compartidos)"
+Write-Host "    - Formato MCP corregido (mcpServers)"
 Write-Host ""
-Write-Host "  NUEVO - Mejoras en MCP server:" -ForegroundColor White
-Write-Host "    - Bloqueo de validacion sin archivo completo (no mas fragmentos)"
-Write-Host "    - Deteccion de Color hardcodeado por linea (sin falsos positivos)"
-Write-Host "    - Comprension obligatoria antes del flujo (paso 0)"
-Write-Host "    - Bloqueo sin archivo de criterios en arquitectura"
-Write-Host ""
-Write-Host "  Incluye v1.8.0:" -ForegroundColor Gray
-Write-Host "    - Parametro decision_usuario para desbloquear pasos"
+Write-Host "  Incluye v2.0.0:" -ForegroundColor Gray
+Write-Host "    - Flujo de 10 pasos (q0 a q9)"
+Write-Host "    - Reglas de interaccion colaborativa"
 Write-Host ""
 Write-Host "Para verificar:" -ForegroundColor Yellow
 Write-Host "  1. Abre Claude Code"

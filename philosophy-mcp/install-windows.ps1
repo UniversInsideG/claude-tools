@@ -1,8 +1,8 @@
-# Instalador de Philosophy MCP para Windows (v1.9.0)
+# Instalador de Philosophy MCP para Windows (v2.1.0)
 # Ejecutar como: powershell -ExecutionPolicy Bypass -File install-windows.ps1
 
 Write-Host ""
-Write-Host "=== Instalador Philosophy MCP v1.9.0 ===" -ForegroundColor Cyan
+Write-Host "=== Instalador Philosophy MCP v2.1.0 ===" -ForegroundColor Cyan
 Write-Host ""
 
 # Verificar Python
@@ -71,9 +71,11 @@ $serverPathEscaped = $serverPath -replace '\\', '\\\\'
 
 $mcpConfig = @"
 {
-  "philosophy": {
-    "command": "$pythonCmd",
-    "args": ["$serverPathEscaped"]
+  "mcpServers": {
+    "philosophy": {
+      "command": "$pythonCmd",
+      "args": ["$serverPathEscaped"]
+    }
   }
 }
 "@
@@ -99,7 +101,7 @@ if (-not (Test-Path $commandsDir)) {
 $filosofiaSource = Join-Path $parentPath "filosofia\commands\filosofia.md"
 if (Test-Path $filosofiaSource) {
     Copy-Item $filosofiaSource (Join-Path $commandsDir "filosofia.md") -Force
-    Write-Host "   /filosofia instalado (9 pasos)" -ForegroundColor Green
+    Write-Host "   /filosofia instalado (10 pasos)" -ForegroundColor Green
 } else {
     Write-Host "   /filosofia no encontrado" -ForegroundColor Yellow
 }
@@ -165,6 +167,18 @@ $planningPath = (Join-Path $hooksDir "planning_reminder.py") -replace '\\', '\\\
 $settingsConfig = @"
 {
   "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Did the assistant ask a question AND also use Edit, Write, or MCP tools in the same turn? If yes: {\"ok\": false, \"reason\": \"You asked a question but used tools without waiting for the answer. Questions end the turn.\"}. If no: {\"ok\": true}.",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
     "UserPromptSubmit": [
       {
         "matcher": "",
@@ -217,7 +231,7 @@ if (Test-Path $settingsPath) {
 }
 
 $settingsConfig | Out-File -FilePath $settingsPath -Encoding UTF8
-Write-Host "   Hooks configurados (3 eventos)" -ForegroundColor Green
+Write-Host "   Hooks configurados (4 eventos: Stop, UserPromptSubmit, PreToolUse, PostToolUse)" -ForegroundColor Green
 
 # Finalizado
 Write-Host ""
@@ -225,23 +239,24 @@ Write-Host "=== INSTALACION COMPLETADA ===" -ForegroundColor Green
 Write-Host ""
 Write-Host "Que se instalo:" -ForegroundColor Cyan
 Write-Host "  - MCP Server: philosophy (server.py)"
-Write-Host "  - Comando: /filosofia (flujo de 9 pasos)"
+Write-Host "  - Comando: /filosofia (flujo de 10 pasos)"
 Write-Host "  - Comando: /arquitectura (analisis global)"
 Write-Host "  - Instrucciones: CLAUDE.md"
 Write-Host "  - Hook: metacognicion.py (comprension + autoobservacion)"
 Write-Host "  - Hook: planning_reminder.py (filosofia de codigo)"
-Write-Host "  - Hooks configurados en 3 eventos: UserPromptSubmit, PreToolUse, PostToolUse"
+Write-Host "  - Hook Stop: detecta pregunta + ejecucion en el mismo turno"
+Write-Host "  - Hooks configurados en 4 eventos: Stop, UserPromptSubmit, PreToolUse, PostToolUse"
 Write-Host ""
-Write-Host "Novedades v1.9.0:" -ForegroundColor Cyan
-Write-Host "  - NUEVO: Hook de metacognicion (comprension antes de ejecucion)"
-Write-Host "  - NUEVO: Autoobservacion PreToolUse/PostToolUse (criterios)"
+Write-Host "Novedades v2.1.0:" -ForegroundColor Cyan
+Write-Host "  - NUEVO: Paso 0 obligatorio (q0_criterios) - acordar criterios con el usuario"
+Write-Host "  - NUEVO: Hook Stop - bloquea si Claude pregunta y ejecuta en el mismo turno"
 Write-Host "  - NUEVO: Criterios persistentes en .claude/criterios_*.md"
-Write-Host "  - NUEVO: Bloqueo de validacion sin archivo completo"
-Write-Host "  - NUEVO: Deteccion de Color hardcodeado por linea"
-Write-Host "  - NUEVO: Comprension obligatoria antes del flujo (paso 0)"
+Write-Host "  - NUEVO: Conexion q0 <-> arquitectura (criterios compartidos)"
+Write-Host "  - NUEVO: Formato MCP corregido (mcpServers)"
 Write-Host ""
-Write-Host "Incluye v1.8.0:" -ForegroundColor Gray
-Write-Host "  - Parametro decision_usuario para desbloquear pasos"
+Write-Host "Incluye v2.0.0:" -ForegroundColor Gray
+Write-Host "  - Flujo de 10 pasos (q0 a q9)"
+Write-Host "  - Reglas de interaccion colaborativa"
 Write-Host ""
 Write-Host "Proximos pasos:" -ForegroundColor Yellow
 Write-Host "  1. Reinicia Claude Code"

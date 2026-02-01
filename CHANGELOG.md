@@ -20,6 +20,12 @@ Historial de cambios del MCP de Filosofía de Programación UniversInside.
 - architecture_analysis se saltaba q0 si existía un archivo de criterios viejo de otra tarea
 - `criterios_file` no definida en `architecture_analysis` cuando q0 se completó en sesión actual → error `name 'criterios_file' is not defined`
 - Falso positivo DRY en validador: líneas `var x = funcion(...)` (llamadas a helpers) ya no se cuentan como duplicación
+- **Scripts Windows actualizados a v2.1.0** (`install-windows.ps1`, `update-windows.ps1`):
+  - Formato MCP corregido: `mcpServers` en lugar de formato plano
+  - Hook Stop añadido (tipo prompt, detecta pregunta + ejecución en mismo turno)
+  - Actualizador migra automáticamente `.mcp.json` de formato antiguo a `mcpServers`
+  - 4 eventos de hooks (Stop, UserPromptSubmit, PreToolUse, PostToolUse)
+  - Novedades y referencias actualizadas a 10 pasos
 
 ---
 

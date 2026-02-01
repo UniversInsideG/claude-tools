@@ -18,6 +18,7 @@
 - architecture_analysis se saltaba q0 si existía cualquier archivo de criterios viejo de otra tarea
 - `criterios_file` no definida cuando `SESSION_STATE["step_0"]` era True → `architecture_analysis` fallaba con `name 'criterios_file' is not defined`
 - Falso positivo DRY en validador: líneas `var x = funcion(...)` (uso de helpers) se contaban como duplicación
+- **Scripts Windows** (`install-windows.ps1`, `update-windows.ps1`) actualizados a v2.1.0: formato `mcpServers`, Hook Stop, migración automática de formato antiguo
 
 ---
 
