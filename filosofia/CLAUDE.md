@@ -73,22 +73,24 @@ ESTRUCTURA (proyecto completo: main.tscn)
 
 ---
 
-## Flujo Obligatorio: 9 Pasos
+## Flujo Obligatorio: 10 Pasos
 
+> **"Entender bien es la forma más rápida de resolver"**
 > **"Verificar ANTES de escribir, no DESPUÉS de fallar"**
 > **"Documentar DESPUÉS de validar"**
 
 Usar las herramientas del MCP `philosophy` en orden:
 
-1. **`philosophy_q1_responsabilidad`** - ¿Hace UNA sola cosa?
-2. **`philosophy_q2_reutilizacion`** - ¿Puedo reutilizar?
-3. **`philosophy_q3_buscar`** - ¿Existe algo similar?
-4. **`philosophy_q4_herencia`** - ¿Se actualizan las instancias?
-5. **`philosophy_q5_nivel`** - ¿Nivel correcto? (valida nomenclatura)
-6. **`philosophy_q6_verificar_dependencias`** - ¿Las dependencias externas existen y coinciden?
-7. **Escribir código**
-8. **`philosophy_validate`** - Validar código escrito
-9. **`philosophy_q9_documentar`** - Documentar cambios (OBLIGATORIO)
+0. **`philosophy_q0_criterios`** — para acordar con el usuario qué se hace y qué debe cumplir, porque sin criterios compartidos no hay forma de saber si el resultado es correcto. Llamar con `confirmado_por_usuario=false`, ESPERAR respuesta, y tras confirmación llamar con `confirmado_por_usuario=true`. **BLOQUEA q1.**
+1. **`philosophy_q1_responsabilidad`** — para garantizar que cada pieza hace UNA sola cosa, porque mezclar responsabilidades genera código que hay que reescribir cuando cambia cualquiera de ellas.
+2. **`philosophy_q2_reutilizacion`** — para decidir si el diseño permite reutilización, porque código que solo sirve en un lugar se duplica cuando se necesita en otro.
+3. **`philosophy_q3_buscar`** — para encontrar código similar que ya existe, porque crear algo nuevo cuando ya hay algo que funciona es duplicación y deuda técnica.
+4. **`philosophy_q4_herencia`** — para definir de qué hereda y qué reutiliza, porque si cambio la base deben actualizarse todas las instancias automáticamente.
+5. **`philosophy_q5_nivel`** — para ubicar en el nivel correcto de la arquitectura, porque el nivel determina la nomenclatura, las dependencias permitidas y la granularidad.
+6. **`philosophy_q6_verificar_dependencias`** — para confirmar que las funciones externas que voy a llamar existen y sus firmas coinciden, porque llamar a funciones inexistentes o con parámetros incorrectos produce errores que se detectan tarde.
+7. **Escribir código** — usando las firmas verificadas y el diseño de los pasos anteriores.
+8. **`philosophy_validate`** — para detectar code smells, duplicación y problemas estructurales, porque los errores de diseño son más baratos de corregir antes de que se integren.
+9. **`philosophy_q9_documentar`** — para registrar qué se cambió y por qué, porque sin documentación el próximo cambio empieza sin contexto y repite errores. **(OBLIGATORIO)**
 
 **El MCP bloquea si se salta un paso.** Si intentas saltar:
 - DEBES explicar por qué

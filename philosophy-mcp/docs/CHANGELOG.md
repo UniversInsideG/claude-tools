@@ -1,5 +1,44 @@
 # Changelog - Philosophy MCP
 
+## [2026-02-01] - Criterios persistentes y conexión q0↔arquitectura (v2.1.0)
+
+### Añadido
+- **`project_path` requerido en q0_criterios** — los criterios se guardan siempre en `.claude/criterios_{tarea}.md`
+- **`criterios_file` en SESSION_STATE** — q0 guarda la ruta del archivo para que architecture_analysis lo encuentre
+- **Listado de criterios en architecture_analysis** — en sesión nueva, lista los archivos de criterios encontrados en disco para que Claude identifique cuál aplica
+
+### Cambiado
+- **architecture_analysis verifica criterios en dos niveles:**
+  - Sesión actual: comprueba `SESSION_STATE["step_0"]` (q0 completado en memoria)
+  - Sesión nueva: busca `criterios_*.md` en `.claude/` del proyecto
+- Eliminado fallback genérico que aceptaba criterios de cualquier tarea anterior
+
+### Corregido
+- q0_criterios guardaba archivo con nombre de tarea, architecture_analysis buscaba por project_name → nunca coincidían
+- architecture_analysis se saltaba q0 si existía cualquier archivo de criterios viejo de otra tarea
+- `criterios_file` no definida cuando `SESSION_STATE["step_0"]` era True → `architecture_analysis` fallaba con `name 'criterios_file' is not defined`
+
+---
+
+## [2026-01-31] - Paso q0_criterios y reglas de interacción colaborativa (v2.0.0)
+
+### Añadido
+- **`philosophy_q0_criterios`**: Nuevo paso 0 obligatorio que fuerza definir criterios con el usuario antes de q1
+  - `confirmado_por_usuario=false` → presenta reformulación y criterios, instrucción de PARAR y usar AskUserQuestion
+  - `confirmado_por_usuario=true` → desbloquea q1 tras confirmación del usuario
+  - q1 BLOQUEADO si step_0 no completado
+- **Hook Stop** en settings.json que detecta pregunta + ejecución en el mismo turno
+- **Proceso de 8 puntos** en CLAUDE.md global con estructura qué/para qué/por qué
+
+### Cambiado
+- Flujo de 9 → 10 pasos en toda la documentación
+- Estructura qué/para qué/por qué aplicada en: filosofia/CLAUDE.md, filosofia/commands/filosofia.md, filosofia/commands/arquitectura.md
+
+### Motivo
+Claude ejecutaba sin esperar respuesta del usuario, reescribía desde cero en vez de iterar, y pasaba filosofía sin checkpoints colaborativos.
+
+---
+
 ## [2026-01-26] - Parámetro decision_usuario para desbloquear pasos
 
 ### Añadido

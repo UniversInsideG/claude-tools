@@ -1,25 +1,39 @@
 ---
-description: Activa la filosofía de programación modular usando MCP (9 pasos)
+description: Activa la filosofía de programación modular usando MCP (10 pasos)
 ---
 
+> **"Entender bien es la forma más rápida de resolver"**
 > **"Verificar ANTES de escribir, no DESPUÉS de fallar"**
 > **"Documentar DESPUÉS de validar"**
 
 ## ANTES DE TODO: COMPRENDER LA TAREA
 
-Entender bien es la forma más rápida de resolver. Si no entiendes la tarea, todo el código que generes después necesitará corrección — más trabajo para los dos.
+Usa `philosophy_q0_criterios` con `confirmado_por_usuario=false` para iniciar la fase de comprensión. El MCP te guiará para:
 
-1. **Lee la tarea completa** — sin saltar a conclusiones sobre qué crear o modificar.
-2. **Reformula al usuario lo que entendiste** — qué quiere, qué debe hacer la pieza, dónde encaja.
-3. **Identifica lo que no sabes o asumes** — ¿hay ambigüedad? ¿Hay decisiones de diseño que dependen del usuario?
-4. **Pregunta al usuario** — verifica que tu comprensión es correcta antes de iniciar el flujo. El coste de una pregunta es mínimo, el coste de diseñar en la dirección equivocada es alto.
-5. **Documenta los criterios acordados** — cuando el usuario confirme, crea un archivo `.claude/criterios_[nombre-tarea].md` en el proyecto con los criterios exactos: qué se hace, para qué, y qué debe cumplir. Sin resumir ni parafrasear — los criterios exactos tal cual se acordaron. Este archivo persiste entre sesiones y después de compactación.
+1. **Reformular lo que entendiste** — para exponer tu interpretación antes de que se convierta en código, porque los supuestos ocultos son la causa principal de diseños incorrectos. Si tu reformulación es incorrecta, el usuario puede corregirla antes de que produzca código equivocado.
 
-Solo después de documentar los criterios, continúa con el flujo de 9 pasos. El MCP bloquea si saltas pasos.
+2. **Identificar lo que no sabes o asumes** — para hacer las preguntas correctas, porque preguntar lo incorrecto no resuelve la ambigüedad. El coste de una pregunta es mínimo; el coste de diseñar en la dirección equivocada es un flujo completo que hay que rehacer.
+
+3. **Presentar criterios de éxito al usuario** — para tener una referencia de éxito compartida, porque sin criterios acordados no hay forma de saber si el código resultante cumple el objetivo real.
+
+4. **ESPERAR confirmación del usuario** — para actuar sobre información real, no sobre suposiciones. La pregunta es el final del turno. NO ejecutes q1 ni ninguna otra herramienta en el mismo turno donde presentas los criterios.
+
+5. **Tras confirmación, llamar con `confirmado_por_usuario=true`** — para desbloquear el flujo con criterios validados. Documéntalos en `.claude/criterios_[nombre-tarea].md` con los criterios exactos: qué se hace, para qué, y qué debe cumplir. Sin resumir ni parafrasear — los criterios exactos tal cual se acordaron. Este archivo persiste entre sesiones y después de compactación.
+
+Solo después de documentar los criterios, continúa con el flujo de 10 pasos. El MCP bloquea si saltas pasos.
 
 ---
 
-## FLUJO DE 9 PASOS:
+## FLUJO DE 10 PASOS:
+
+### PASO 0: `philosophy_q0_criterios`
+Pregunta: ¿Qué queremos lograr y con qué criterios?
+- Reformula lo que entendiste de la tarea
+- Presenta criterios de éxito propuestos
+- Llama con `confirmado_por_usuario=false` (primera vez)
+- ESPERA confirmación del usuario (pregunta con AskUserQuestion)
+- Cuando confirme, llama de nuevo con `confirmado_por_usuario=true`
+- **Sin este paso, q1 está BLOQUEADO**
 
 ### PASO 1: `philosophy_q1_responsabilidad`
 Pregunta: ¿Esta pieza hace UNA sola cosa?
@@ -112,7 +126,9 @@ $ARGUMENTS
 
 ## EMPIEZA
 
-1. Comprende la tarea (sección "ANTES DE TODO" arriba) y verifica con el usuario
-2. `philosophy_q1_responsabilidad` para comenzar el diseño
+1. `philosophy_q0_criterios` con `confirmado_por_usuario=false` — presenta tu entendimiento y criterios
+2. ESPERA confirmación del usuario
+3. `philosophy_q0_criterios` con `confirmado_por_usuario=true` — criterios acordados
+4. `philosophy_q1_responsabilidad` para comenzar el diseño
 
-**Flujo completo:** Comprender → q1 → q2 → q3 → q4 → q5 → q6 → código → validate → **q9_documentar**
+**Flujo completo:** q0 (criterios) → q1 → q2 → q3 → q4 → q5 → q6 → código → validate → **q9_documentar**

@@ -4,6 +4,56 @@ Historial de cambios del MCP de Filosofía de Programación UniversInside.
 
 ---
 
+## [2.1.0] - 2026-02-01
+
+### Añadido
+- **Criterios persistentes**: `q0_criterios` requiere `project_path` y guarda criterios en `.claude/criterios_{tarea}.md`
+- **`criterios_file` en SESSION_STATE**: q0 guarda ruta del archivo para que `architecture_analysis` lo encuentre sin depender de nombres coincidentes
+- **Listado de criterios en `architecture_analysis`**: en sesión nueva (retomar), lista archivos encontrados para que Claude identifique el correcto
+
+### Cambiado
+- `architecture_analysis` verifica criterios en dos niveles: sesión actual (`SESSION_STATE["step_0"]`) y disco (`criterios_*.md`)
+- Eliminado fallback genérico que aceptaba criterios de cualquier tarea anterior
+
+### Corregido
+- q0 y architecture_analysis usaban nombres distintos para el archivo de criterios (tarea vs project_name) → nunca coincidían
+- architecture_analysis se saltaba q0 si existía un archivo de criterios viejo de otra tarea
+- `criterios_file` no definida en `architecture_analysis` cuando q0 se completó en sesión actual → error `name 'criterios_file' is not defined`
+
+---
+
+## [2.0.0] - 2026-01-31
+
+### Añadido
+- **Paso 0: `philosophy_q0_criterios`** — fase obligatoria de definición de criterios con el usuario antes del flujo de diseño
+  - Primera llamada con `confirmado_por_usuario=false`: Claude presenta reformulación y criterios, recibe instrucción de PARAR y usar AskUserQuestion
+  - Segunda llamada con `confirmado_por_usuario=true`: desbloquea q1 tras confirmación del usuario
+  - **BLOQUEA q1** si no se completa — q1 devuelve error de paso saltado
+  - Nuevo campo `step_0` en SESSION_STATE
+- **Hook Stop** en `~/.claude/settings.json` — detecta cuando Claude pregunta al usuario pero ejecuta herramientas modificadoras en el mismo turno, y bloquea
+- **Reglas de interacción en CLAUDE.md global** — proceso de 8 puntos con qué/para qué/por qué integrados: leer, reformular, identificar dudas, preguntar y PARAR, esperar, acordar criterios, construir sobre lo existente, usar MCP
+
+### Cambiado
+- Flujo de 9 pasos → **10 pasos** (q0 a q9) en toda la documentación
+- `philosophy_q1_responsabilidad` ahora verifica `step_0` antes de ejecutarse
+- Descripción de q1 actualizada: "Requiere: Paso 0 completado"
+- **Estructura qué/para qué/por qué** aplicada en todos los archivos de instrucciones:
+  - `filosofia/CLAUDE.md` — los 10 pasos del flujo
+  - `filosofia/commands/filosofia.md` — sección "ANTES DE TODO" y flujo
+  - `filosofia/commands/arquitectura.md` — sección "ANTES DE TODO", fases 1-4 y fase 5
+
+### Motivo
+Claude ejecutaba sin esperar respuesta del usuario, reescribía archivos desde cero en lugar de iterar, y pasaba el flujo de filosofía sin checkpoints colaborativos. La causa raíz: las instrucciones describían intención pero no imponían paradas mecánicas, y no existía fase de acuerdo de criterios.
+
+### Archivos modificados
+- `philosophy-mcp/server.py` — step_0, reset_state, Tool q0, call_tool handler, step0_criterios, gate en step1
+- `filosofia/commands/filosofia.md` — "ANTES DE TODO" con q0, flujo de 10 pasos
+- `filosofia/commands/arquitectura.md` — "ANTES DE TODO" con q0, fases 1-4 y fase 5 con qué/para qué/por qué
+- `filosofia/CLAUDE.md` — flujo de 10 pasos con qué/para qué/por qué
+- `CLAUDE.md` — flujo actualizado de 7 a 10 pasos
+
+---
+
 ## [1.7.0] - 2026-01-24
 
 ### Añadido

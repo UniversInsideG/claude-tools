@@ -3,7 +3,7 @@
 MCP Server: Philosophy - UniversInside
 =======================================
 Servidor MCP que fuerza la filosofía de programación modular.
-Implementa 8 pasos obligatorios con 7 herramientas.
+Implementa 10 pasos obligatorios (q0-q9) con 8 herramientas.
 
 "Máximo impacto, menor esfuerzo — a largo plazo"
 "Verificar ANTES de escribir, no DESPUÉS de fallar"
@@ -24,10 +24,11 @@ from mcp.server.stdio import stdio_server
 server = Server("philosophy")
 
 # ============================================================
-# ESTADO DE SESIÓN - Tracking de los 7 pasos
+# ESTADO DE SESIÓN - Tracking de los 10 pasos (q0-q9)
 # ============================================================
 
 SESSION_STATE = {
+    "step_0": False,  # Q0: Criterios acordados con el usuario
     "step_1": False,  # Q1: Responsabilidad
     "step_2": False,  # Q2: Reutilización
     "step_3": False,  # Q3: Buscar similar
@@ -45,10 +46,12 @@ SESSION_STATE = {
     "search_results": None,
     "verified_dependencies": None,  # Dependencias verificadas en q6
     "duplication_detected": None,  # Resultado de detección de duplicación en q3
+    "criterios_file": None,  # Ruta del archivo de criterios creado por q0
 }
 
 def reset_state():
     """Resetea el estado para una nueva creación"""
+    SESSION_STATE["step_0"] = False
     SESSION_STATE["step_1"] = False
     SESSION_STATE["step_2"] = False
     SESSION_STATE["step_3"] = False
@@ -64,6 +67,7 @@ def reset_state():
     SESSION_STATE["search_results"] = None
     SESSION_STATE["verified_dependencies"] = None
     SESSION_STATE["duplication_detected"] = None
+    SESSION_STATE["criterios_file"] = None
 
 
 # ============================================================
@@ -194,12 +198,55 @@ PHILOSOPHY = {
 async def list_tools() -> list[Tool]:
     """Lista todas las herramientas disponibles"""
     return [
+        # Paso 0
+        Tool(
+            name="philosophy_q0_criterios",
+            description="""PASO 0 (OBLIGATORIO): Definir criterios con el usuario ANTES de diseñar.
+
+"Entender bien es la forma más rápida de resolver"
+
+ANTES de iniciar el flujo de diseño (q1-q9), DEBES:
+1. Reformular lo que entendiste de la tarea
+2. Identificar lo que no sabes o asumes
+3. Presentar los criterios de éxito propuestos
+4. ESPERAR confirmación del usuario (confirmado_por_usuario=false la primera vez)
+5. Solo cuando el usuario confirme, llamar de nuevo con confirmado_por_usuario=true
+
+Sin este paso, q1 está BLOQUEADO.""",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "tarea": {
+                        "type": "string",
+                        "description": "Qué pidió el usuario (la tarea original)"
+                    },
+                    "reformulacion": {
+                        "type": "string",
+                        "description": "Cómo entendiste la tarea (tu reformulación)"
+                    },
+                    "criterios": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Lista de criterios de éxito acordados"
+                    },
+                    "confirmado_por_usuario": {
+                        "type": "boolean",
+                        "description": "True SOLO después de que el usuario haya confirmado los criterios. La primera llamada DEBE ser false."
+                    },
+                    "project_path": {
+                        "type": "string",
+                        "description": "Ruta del proyecto. Los criterios se guardan en .claude/criterios_{tarea}.md para persistir entre sesiones."
+                    }
+                },
+                "required": ["tarea", "reformulacion", "criterios", "confirmado_por_usuario", "project_path"]
+            }
+        ),
         # Paso 1
         Tool(
             name="philosophy_q1_responsabilidad",
             description="""PASO 1 (OBLIGATORIO): ¿Esta pieza hace UNA sola cosa?
 Reflexiona y define la responsabilidad única de lo que vas a crear.
-Este es el PRIMER paso del flujo obligatorio.
+Requiere: Paso 0 completado (criterios acordados con el usuario).
 APLICA A TODO: código nuevo, bug fixes, refactors, modificaciones.""",
             inputSchema={
                 "type": "object",
@@ -413,11 +460,15 @@ Usa usuario_confirmo_warnings=true solo DESPUÉS de que el usuario confirme.""",
                 "properties": {
                     "code": {
                         "type": "string",
-                        "description": "El código a validar"
+                        "description": "El código a validar. Opcional si se usa file_path."
+                    },
+                    "file_path": {
+                        "type": "string",
+                        "description": "Ruta absoluta al archivo a validar. El servidor lee el contenido directamente. Usar cuando el código es muy grande para pasar como parámetro."
                     },
                     "filename": {
                         "type": "string",
-                        "description": "Nombre del archivo"
+                        "description": "Nombre del archivo. Opcional si se usa file_path (se extrae automáticamente)."
                     },
                     "usuario_confirmo_warnings": {
                         "type": "boolean",
@@ -428,7 +479,7 @@ Usa usuario_confirmo_warnings=true solo DESPUÉS de que el usuario confirme.""",
                         "description": "True si el usuario decidió continuar (asume responsabilidad). Solo usar DESPUÉS de preguntar al usuario."
                     }
                 },
-                "required": ["code", "filename"]
+                "required": ["filename"]
             }
         ),
         # Paso 9 (documentar)
@@ -620,7 +671,16 @@ Muestra:
 async def call_tool(name: str, arguments: dict) -> list[TextContent]:
     """Ejecuta una herramienta según el nombre proporcionado"""
 
-    if name == "philosophy_q1_responsabilidad":
+    if name == "philosophy_q0_criterios":
+        result = await step0_criterios(
+            arguments["tarea"],
+            arguments["reformulacion"],
+            arguments["criterios"],
+            arguments["confirmado_por_usuario"],
+            arguments.get("project_path")
+        )
+
+    elif name == "philosophy_q1_responsabilidad":
         result = await step1_responsabilidad(
             arguments["description"],
             arguments["responsabilidad_unica"],
@@ -669,10 +729,11 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
 
     elif name == "philosophy_validate":
         result = await step8_validate(
-            arguments["code"],
-            arguments["filename"],
-            arguments.get("usuario_confirmo_warnings", False),
-            arguments.get("decision_usuario", False)
+            code=arguments.get("code"),
+            filename=arguments.get("filename"),
+            file_path=arguments.get("file_path"),
+            usuario_confirmo_warnings=arguments.get("usuario_confirmo_warnings", False),
+            decision_usuario=arguments.get("decision_usuario", False)
         )
 
     elif name == "philosophy_q9_documentar":
@@ -726,8 +787,87 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
 # IMPLEMENTACIÓN DE PASOS
 # ============================================================
 
+async def step0_criterios(tarea: str, reformulacion: str, criterios: list, confirmado_por_usuario: bool, project_path: str = None) -> str:
+    """PASO 0: Definir criterios con el usuario ANTES de diseñar"""
+
+    if not confirmado_por_usuario:
+        # Primera llamada: Claude presenta su entendimiento, debe PARAR y esperar
+        criterios_fmt = "\n".join(f"   {i+1}. {c}" for i, c in enumerate(criterios))
+
+        return f"""
+╔══════════════════════════════════════════════════════════════════╗
+║  PASO 0/9: CRITERIOS - REQUIERE CONFIRMACIÓN DEL USUARIO        ║
+║  "Entender bien es la forma más rápida de resolver"              ║
+╚══════════════════════════════════════════════════════════════════╝
+
+📋 TAREA DEL USUARIO:
+   {tarea}
+
+🔄 TU REFORMULACIÓN:
+   {reformulacion}
+
+📐 CRITERIOS DE ÉXITO PROPUESTOS:
+{criterios_fmt}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🚨 INSTRUCCIÓN OBLIGATORIA:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PASO 1: Presenta al usuario tu reformulación y criterios (el texto de arriba)
+PASO 2: USA AskUserQuestion para preguntar:
+   "¿Son correctos estos criterios?"
+   Opciones:
+   - "Sí, continuar" → Llama de nuevo con confirmado_por_usuario=true
+   - "No, ajustar" → El usuario explicará qué cambiar
+
+⛔ NO ejecutes q1 ni ninguna otra herramienta en este turno.
+⛔ La pregunta es el FINAL del turno.
+"""
+
+    # Segunda llamada: usuario confirmó
+    SESSION_STATE["step_0"] = True
+
+    criterios_fmt = "\n".join(f"   {i+1}. {c}" for i, c in enumerate(criterios))
+
+    # Persistir criterios a disco
+    from pathlib import Path
+    import re
+    path = Path(project_path).expanduser().resolve()
+    claude_dir = path / ".claude"
+    claude_dir.mkdir(exist_ok=True)
+    nombre_tarea = re.sub(r'[^\w\s-]', '', tarea[:60]).strip().replace(' ', '_').lower()
+    criterios_file = claude_dir / f"criterios_{nombre_tarea}.md"
+    contenido = f"# Criterios: {tarea}\n\n## Reformulación\n{reformulacion}\n\n## Criterios de éxito\n"
+    for i, c in enumerate(criterios):
+        contenido += f"{i+1}. {c}\n"
+    criterios_file.write_text(contenido, encoding='utf-8')
+    SESSION_STATE["criterios_file"] = str(criterios_file)
+
+    return f"""
+╔══════════════════════════════════════════════════════════════════╗
+║  PASO 0/9: CRITERIOS ACORDADOS ✅                                ║
+╚══════════════════════════════════════════════════════════════════╝
+
+📋 TAREA: {tarea}
+
+🔄 ENTENDIMIENTO: {reformulacion}
+
+📐 CRITERIOS CONFIRMADOS:
+{criterios_fmt}
+
+✅ PASO 0 COMPLETADO - Criterios acordados con el usuario
+💾 Criterios guardados en: {criterios_file}
+
+➡️ SIGUIENTE: Usa philosophy_q1_responsabilidad
+"""
+
+
 async def step1_responsabilidad(description: str, responsabilidad: str, language: str, tipo_cambio: str = "nuevo") -> str:
     """PASO 1: ¿Hace UNA sola cosa?"""
+
+    # Verificar paso 0
+    if not SESSION_STATE["step_0"]:
+        return generar_error_paso_saltado("philosophy_q0_criterios", "philosophy_q1_responsabilidad")
 
     # Guardar en estado
     SESSION_STATE["current_description"] = description
@@ -2066,8 +2206,25 @@ Opciones:
     return response
 
 
-async def step8_validate(code: str, filename: str, usuario_confirmo_warnings: bool = False, decision_usuario: bool = False) -> str:
+async def step8_validate(code: str = None, filename: str = None, file_path: str = None, usuario_confirmo_warnings: bool = False, decision_usuario: bool = False) -> str:
     """PASO 8: Validar código escrito"""
+
+    # Resolver código desde file_path si no se pasó code
+    if file_path:
+        import os
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                code = f.read()
+        except Exception as e:
+            return f"❌ No se pudo leer el archivo: {file_path}\nError: {e}"
+        if not filename:
+            filename = os.path.basename(file_path)
+
+    if not code:
+        return "❌ Debes proporcionar `code` o `file_path`."
+
+    if not filename:
+        return "❌ Debes proporcionar `filename` o `file_path`."
 
     # Verificar paso anterior (ahora requiere step_6)
     if not SESSION_STATE["step_6"]:
@@ -2778,32 +2935,51 @@ async def architecture_analysis(project_path: str, language: str, project_name: 
     claude_dir = path / ".claude"
     claude_dir.mkdir(exist_ok=True)
 
-    # Verificar que existen criterios documentados para esta tarea
-    criterios_pattern = f"criterios_{project_name}*"
-    criterios_files = list(claude_dir.glob(criterios_pattern))
-    # También buscar con nombre genérico
-    if not criterios_files:
-        criterios_files = list(claude_dir.glob("criterios_*"))
+    # Verificar criterios: primero en sesión (q0 completado), luego en disco
+    if SESSION_STATE["step_0"]:
+        # q0 completado en esta sesión — criterios en memoria (y disco)
+        criterios_file = SESSION_STATE.get("criterios_file", "sesión actual")
+    else:
+        # q0 no se completó en esta sesión — buscar en disco
+        criterios_files = sorted(claude_dir.glob("criterios_*.md"), key=lambda f: f.stat().st_mtime, reverse=True)
 
-    if not criterios_files:
-        return f"""
+        if not criterios_files:
+            return f"""
 ╔══════════════════════════════════════════════════════════════════╗
 ║  ANÁLISIS BLOQUEADO: FALTAN CRITERIOS                            ║
 ╚══════════════════════════════════════════════════════════════════╝
 
-❌ No se encontró archivo de criterios en {claude_dir}/
+❌ No se encontraron criterios acordados.
 
-Antes de iniciar el análisis, documenta los criterios acordados con el usuario:
+Usa philosophy_q0_criterios (con project_path="{project_path}") para:
 
-1. Reformula al usuario lo que entiendes de la tarea
-2. Acuerda: qué se va a hacer, para qué, y qué debe cumplir
-3. Crea el archivo .claude/criterios_{project_name}.md con los criterios
-   exactos tal cual se acordaron — sin resumir ni parafrasear
+1. Reformular al usuario lo que entiendes de la tarea
+2. Acordar: qué se va a hacer, para qué, y qué debe cumplir
+3. Confirmar con el usuario (confirmado_por_usuario=true)
 
 El análisis sin criterios claros produce resultados que no se pueden evaluar.
 """
 
-    criterios_file = str(criterios_files[0])
+        # Listar archivos encontrados para que Claude identifique el correcto
+        lista = "\n".join(f"  - {f.name}" for f in criterios_files)
+        return f"""
+╔══════════════════════════════════════════════════════════════════╗
+║  CRITERIOS ENCONTRADOS EN DISCO                                  ║
+╚══════════════════════════════════════════════════════════════════╝
+
+Se encontraron archivos de criterios de sesiones anteriores:
+{lista}
+
+Para continuar, tienes dos opciones:
+
+1. Si alguno corresponde a esta tarea:
+   → Lee el archivo y confirma con el usuario que siguen vigentes
+   → Luego usa philosophy_q0_criterios con project_path="{project_path}"
+     y confirmado_por_usuario=true
+
+2. Si ninguno aplica:
+   → Usa philosophy_q0_criterios para acordar nuevos criterios
+"""
 
     # Nombre del archivo de análisis
     date_str = datetime.now().strftime("%Y%m%d")

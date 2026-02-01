@@ -45,7 +45,7 @@ claude-tools/
 │
 └── filosofia/                # User-facing configuration
     ├── commands/
-    │   ├── filosofia.md      # /filosofia command (9-step flow)
+    │   ├── filosofia.md      # /filosofia command (10-step flow)
     │   └── arquitectura.md   # /arquitectura command (refactoring analysis)
     ├── hooks/                # Legacy hooks (deprecated, MCP preferred)
     └── CLAUDE.md             # Instructions for end-user projects
@@ -55,7 +55,8 @@ claude-tools/
 
 Single-file Python server implementing all MCP tools:
 
-**Core Flow Tools (9 steps):**
+**Core Flow Tools (10 steps):**
+0. `philosophy_q0_criterios` - Define criteria with user BEFORE designing (blocks q1)
 1. `philosophy_q1_responsabilidad` - Single responsibility check
 2. `philosophy_q2_reutilizacion` - Reusability analysis
 3. `philosophy_q3_buscar` - Search for similar code/docs
@@ -84,8 +85,9 @@ Single-file Python server implementing all MCP tools:
 ### Session State
 
 The server maintains two state dictionaries:
-- `SESSION_STATE` - Tracks the 9-step flow progress (resets per creation)
+- `SESSION_STATE` - Tracks the 10-step flow progress (resets per creation)
   - Includes `duplication_detected` with similarity analysis from q3
+  - Includes `criterios_file` with path to criteria file written by q0
 - `ARCHITECTURE_STATE` - Tracks architecture analysis progress (persists)
 
 ### 5-Level Architecture (equivalent to Atomic Design)
@@ -100,7 +102,10 @@ ESTRUCTURA (main.tscn)
 
 ## Key Concepts
 
-- **Flow is mandatory**: All 9 steps must be completed in order
+- **Criteria phase (v2.0.0)**: Step 0 forces Claude to define criteria with user before q1
+- **Persistent criteria (v2.1.0)**: q0 requires `project_path` and writes criteria to `.claude/criterios_{tarea}.md`
+- **Architecture↔criteria connection (v2.1.0)**: `architecture_analysis` checks `SESSION_STATE["step_0"]` for current session, falls back to disk search for resumed sessions
+- **Flow is mandatory**: All 10 steps must be completed in order
 - **Step skipping blocked**: Server returns error if steps are skipped
 - **User decision required**: When skipping is attempted, Claude must explain and ask user
 - **User can override (v1.8.0)**: After user decides, call with `decision_usuario=true` to continue

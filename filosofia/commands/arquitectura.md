@@ -10,13 +10,17 @@ description: Análisis arquitectónico global para refactorizaciones (exhaustivo
 
 ## ANTES DE TODO: COMPRENDER LA TAREA
 
-Entender bien es la forma más rápida de resolver. Si no entiendes la tarea, todo el análisis que generes después necesitará corrección — más trabajo para los dos.
+Usa `philosophy_q0_criterios` con `confirmado_por_usuario=false` para iniciar la fase de comprensión. El MCP te guiará para:
 
-1. **Lee la tarea completa** — sin saltar a conclusiones sobre qué analizar.
-2. **Reformula al usuario lo que entendiste** — qué quiere, qué alcance tiene, qué proyectos o archivos están involucrados.
-3. **Identifica lo que no sabes o asumes** — ¿hay ambigüedad? ¿Hay decisiones que dependen del usuario?
-4. **Pregunta al usuario** — verifica que tu comprensión es correcta antes de lanzar el análisis. El coste de una pregunta es mínimo, el coste de analizar en la dirección equivocada es alto.
-5. **Documenta los criterios acordados** — cuando el usuario confirme, crea un archivo `.claude/criterios_[nombre-tarea].md` en el proyecto con los criterios exactos: qué se hace, para qué, y qué debe cumplir. Sin resumir ni parafrasear — los criterios exactos tal cual se acordaron. Este archivo persiste entre sesiones y después de compactación.
+1. **Reformular lo que entendiste** — para exponer tu interpretación antes de que se convierta en análisis, porque los supuestos ocultos son la causa principal de análisis en la dirección equivocada. Si tu reformulación es incorrecta, el usuario puede corregirla antes de que produzca un plan de refactorización inválido.
+
+2. **Identificar lo que no sabes o asumes** — para hacer las preguntas correctas, porque preguntar lo incorrecto no resuelve la ambigüedad. El coste de una pregunta es mínimo; el coste de analizar en la dirección equivocada es un análisis completo que hay que rehacer.
+
+3. **Presentar criterios de éxito al usuario** — para tener una referencia de éxito compartida, porque sin criterios acordados no hay forma de saber si el resultado del análisis es correcto ni si las tareas de refactorización cumplen el objetivo real.
+
+4. **ESPERAR confirmación del usuario** — para actuar sobre información real, no sobre suposiciones. La pregunta es el final del turno. NO ejecutes herramientas de análisis en el mismo turno donde presentas los criterios.
+
+5. **Tras confirmación, llamar con `confirmado_por_usuario=true`** — para desbloquear el flujo con criterios validados. Documéntalos en `.claude/criterios_[nombre-tarea].md` con los criterios exactos: qué se hace, para qué, y qué debe cumplir. Sin resumir ni parafrasear — los criterios exactos tal cual se acordaron. Este archivo persiste entre sesiones y después de compactación.
 
 Solo después de documentar los criterios, continúa con los pasos siguientes.
 
@@ -60,26 +64,25 @@ philosophy_architecture_analysis(
 ```
 
 ### FASE 1: INVENTARIO EXHAUSTIVO
-- Documentar TODOS los archivos
+Documentar TODOS los archivos e incluir firmas públicas de cada uno — para tener una base de datos real de lo que existe, porque sin inventario completo las fases posteriores trabajan con información parcial y las decisiones de refactorización ignoran dependencias reales.
 - **INCLUYE FIRMAS PÚBLICAS** de cada archivo (extraídas automáticamente)
-- Las firmas son la base para verificar dependencias
+- Las firmas son la base para verificar dependencias en fases posteriores
 - Al terminar → `philosophy_architecture_checkpoint` con checkpoint=1
 
 ### FASE 2: MAPA DE FUNCIONALIDADES
-- Identificar QUÉ HACE cada parte
-- **USAR LAS FIRMAS VERIFICADAS** del inventario
-- No asumir firmas, usar las reales
+Identificar QUÉ HACE cada parte usando las firmas verificadas del inventario — para entender la responsabilidad real de cada archivo antes de moverlo, porque asumir lo que hace un archivo sin leerlo produce planes de refactorización que rompen funcionalidad.
+- **USAR LAS FIRMAS VERIFICADAS** del inventario, no asumir
 - Al terminar → `philosophy_architecture_checkpoint` con checkpoint=2
 
 ### FASE 3: CLASIFICACIÓN POR NIVELES
-- Mapear cada archivo al nivel correcto
+Mapear cada archivo al nivel correcto de la arquitectura (pieza/componente/contenedor/pantalla/estructura) — para detectar qué archivos están en el nivel equivocado, porque un archivo en el nivel incorrecto tiene dependencias incorrectas y nomenclatura que no refleja su rol real.
 - Al terminar → `philosophy_architecture_checkpoint` con checkpoint=3
 
 ### FASE 4: PLAN DE REFACTORIZACIÓN
-- Generar plan ordenado
+Generar plan ordenado con tareas concretas — para tener una secuencia verificable de cambios, porque ejecutar refactorizaciones sin plan produce cambios que se anulan entre sí o rompen dependencias no detectadas.
 - **CADA TAREA DEBE INCLUIR:**
-  - Test de verificación específico
-  - **DEPENDENCIAS EXTERNAS VERIFICADAS** (funciones que va a llamar)
+  - Test de verificación específico — para saber si la tarea funcionó antes de pasar a la siguiente
+  - **DEPENDENCIAS EXTERNAS VERIFICADAS** — para no llamar funciones que no existen o con firmas incorrectas
 - Formato de tarea:
 ```
 TAREA X.Y: [descripción]
@@ -99,27 +102,26 @@ TEST: [cómo verificar que funciona]
 Esta es la fase donde se refactoriza. **OBLIGATORIO seguir este flujo para CADA tarea:**
 
 ### PASO 1: Leer la tarea del plan
-Identifica:
-- Qué hacer
-- Archivo origen
-- Archivo destino
+Para tener claro el alcance exacto antes de tocar código, porque implementar sin leer la tarea produce cambios que no coinciden con el plan.
+- Qué hacer, archivo origen, archivo destino
 - **DEPENDENCIAS VERIFICADAS** (del plan)
 - **TEST DE VERIFICACIÓN** (del plan)
 
 ### PASO 2: Implementar usando /filosofia
-Usa el flujo q1→q8 para implementar la tarea.
-**IMPORTANTE:** En q6 (verificar dependencias), usa las firmas del plan.
+Para que cada tarea pase el mismo flujo de diseño que código nuevo, porque una refactorización sin verificación de responsabilidad, herencia y dependencias introduce los mismos problemas que intenta resolver.
+- Usa el flujo q0→q9 para implementar la tarea
+- En q6 (verificar dependencias), usa las firmas del plan
 
 ### PASO 3: EJECUTAR EL TEST (OBLIGATORIO)
-**NO PUEDES SALTARTE ESTE PASO.**
+Para verificar que la tarea funciona antes de pasar a la siguiente, porque sin test los errores se acumulan y al final no se sabe cuál tarea rompió qué. **NO PUEDES SALTARTE ESTE PASO.**
 
-Ejecuta el test de verificación definido en el plan. Ejemplos:
+Ejemplos:
 - "Ejecutar el proyecto y verificar que X funciona"
 - "Llamar a la función Y y verificar que retorna Z"
 - "Abrir la pantalla y verificar que muestra los datos"
 
 ### PASO 4: Reportar resultado
-Muestra al usuario:
+Para que el usuario vea evidencia concreta de que la tarea pasó, porque "funciona" sin evidencia no es verificable.
 ```
 TAREA: [nombre]
 DEPENDENCIAS: [X funciones verificadas]
@@ -129,6 +131,7 @@ EVIDENCIA: [qué verificaste]
 ```
 
 ### PASO 5: Decidir siguiente acción
+Para evitar que errores se propaguen entre tareas, porque continuar con una tarea fallida acumula errores que se vuelven imposibles de diagnosticar.
 
 **SI EL TEST PASÓ:**
 - Marcar tarea como completada en el archivo
