@@ -8,6 +8,34 @@ description: Análisis arquitectónico global para refactorizaciones (exhaustivo
 >
 > **"Verificar ANTES de escribir, no DESPUÉS de fallar"**
 
+## ⛔ REGLA CRÍTICA: NO ANALICES ANTES DE USAR ESTA HERRAMIENTA
+
+**PROHIBIDO** analizar código, leer archivos, o sacar conclusiones ANTES de usar `philosophy_q0_criterios`.
+
+❌ **INCORRECTO:**
+```
+Usuario: "Investiga este bug"
+Claude: [lee código, saca conclusiones] ← PROHIBIDO
+Claude: [usa arquitectura con criterios sesgados]
+```
+
+✅ **CORRECTO:**
+```
+Usuario: "Investiga este bug"
+Claude: [usa q0 PRIMERO para definir criterios con el usuario]
+Claude: [DESPUÉS analiza código usando las fases de arquitectura]
+```
+
+**¿Por qué?** Cuando analizas antes:
+- Haces análisis superficial (suposiciones, cambios erráticos)
+- Llegas al análisis arquitectónico con conclusiones sesgadas
+- Las fases de análisis exhaustivo se vuelven redundantes
+- El análisis profundo que evita errores se pierde
+
+**Las herramientas GUÍAN el análisis desde cero, no validan conclusiones previas.**
+
+---
+
 ## ANTES DE TODO: COMPRENDER LA TAREA
 
 Usa `philosophy_q0_criterios` con `confirmado_por_usuario=false` para iniciar la fase de comprensión. El MCP te guiará para:

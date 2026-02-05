@@ -398,10 +398,15 @@ Requiere: Paso 4 completado.""",
 
 "Verificar ANTES de escribir, no DESPUÉS de fallar"
 
-Lista TODAS las funciones externas que vas a llamar y verifica:
+DEPENDENCIAS (funciones a llamar):
 1. Que el archivo existe
 2. Que la función existe
 3. Que la firma (parámetros, tipos) coincide
+
+REFERENCIAS (código a replicar) - NUEVO:
+1. Extrae propiedades del código de referencia
+2. Muestra los valores encontrados para análisis exhaustivo
+3. Guarda las propiedades para que validate las verifique después
 
 Si hay discrepancias, NO puedes continuar hasta resolverlas.
 Requiere: Paso 5 completado.""",
@@ -438,12 +443,43 @@ Requiere: Paso 5 completado.""",
                             "required": ["file", "function"]
                         }
                     },
+                    "references": {
+                        "type": "array",
+                        "description": "Lista de referencias (código a replicar) - OPCIONAL. Extrae propiedades para análisis exhaustivo.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "file": {
+                                    "type": "string",
+                                    "description": "Ruta del archivo (relativa al proyecto)"
+                                },
+                                "start_line": {
+                                    "type": "integer",
+                                    "description": "Línea inicial (opcional, 1-indexed)"
+                                },
+                                "end_line": {
+                                    "type": "integer",
+                                    "description": "Línea final (opcional, 1-indexed)"
+                                },
+                                "search_pattern": {
+                                    "type": "string",
+                                    "description": "Patrón para encontrar el bloque relevante (opcional)"
+                                },
+                                "must_document": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "description": "Propiedades que DEBEN documentarse, ej: ['layout_mode', 'anchors_preset']"
+                                }
+                            },
+                            "required": ["file", "must_document"]
+                        }
+                    },
                     "decision_usuario": {
                         "type": "boolean",
                         "description": "True si el usuario decidió continuar (asume responsabilidad). Solo usar DESPUÉS de preguntar al usuario."
                     }
                 },
-                "required": ["project_path", "dependencies"]
+                "required": ["project_path"]
             }
         ),
         # Paso 8 (después de escribir código)
@@ -723,7 +759,8 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
     elif name == "philosophy_q6_verificar_dependencias":
         result = await step6_verificar_dependencias(
             arguments["project_path"],
-            arguments["dependencies"],
+            arguments.get("dependencies", []),
+            arguments.get("references", []),
             arguments.get("decision_usuario", False)
         )
 
@@ -789,10 +826,94 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
 
 async def step0_criterios(tarea: str, reformulacion: str, criterios: list, confirmado_por_usuario: bool, project_path: str = None) -> str:
     """PASO 0: Definir criterios con el usuario ANTES de diseñar"""
+    import re
+
+    # Detectar si Claude analizó código ANTES de usar esta herramienta
+    patrones_analisis_previo = [
+        r'\b(encontr[ée]|identifiqu[ée]|detect[ée]|descubr[íi])\b',
+        r'\b(el bug est[áa]|la causa es|el problema est[áa])\b',
+        r'\b(l[íi]nea \d+|en la funci[óo]n|en el archivo)\b',
+        r'\b(deber[íi]a cambiar|hay que modificar|necesita corregir)\b',
+        r'\b(ya analice|ya revis[ée]|ya le[íi])\b',
+    ]
+
+    advertencias_analisis = []
+    texto_completo = f"{reformulacion} {' '.join(criterios)}"
+    for patron in patrones_analisis_previo:
+        if re.search(patron, texto_completo, re.IGNORECASE):
+            advertencias_analisis.append(patron)
+
+    # Detectar criterios que son código/implementación/debugging en vez de funcionales
+    patrones_criterio_codigo = [
+        # Código específico
+        r'\b(usar|llamar|importar)\s+\w+\(',  # "usar funcion()"
+        r'=\s*\d+',  # "= 0", "= 5"
+        r'\b(layout_mode|anchors|stretch_mode|expand_mode)\b',  # propiedades específicas
+        r'\.[a-z_]+\s*=',  # ".propiedad ="
+        r'\b(get_node|add_child|emit|connect)\b',  # funciones específicas Godot
+        r'_[a-z_]+\(',  # funciones con guión bajo "_trigger_master()"
+        # Criterios de debugging/proceso (no funcionales)
+        r'\b(identificar|verificar|comprobar)\s+(el punto|d[oó]nde|que los datos)\b',
+        r'\b(proponer correcci[oó]n|basad[ao] en evidencia)\b',
+        r'\b(los datos|par[aá]metros).*llegan correctamente\b',
+        r'\b(el flujo|el punto exacto|d[oó]nde falla)\b',
+    ]
+
+    criterios_con_codigo = []
+    for i, criterio in enumerate(criterios):
+        for patron in patrones_criterio_codigo:
+            if re.search(patron, criterio, re.IGNORECASE):
+                criterios_con_codigo.append(i + 1)
+                break
 
     if not confirmado_por_usuario:
         # Primera llamada: Claude presenta su entendimiento, debe PARAR y esperar
         criterios_fmt = "\n".join(f"   {i+1}. {c}" for i, c in enumerate(criterios))
+
+        # Construir advertencias si las hay
+        advertencias_texto = ""
+        if advertencias_analisis:
+            advertencias_texto += """
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ ADVERTENCIA: POSIBLE ANÁLISIS PREVIO DETECTADO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Tu reformulación o criterios sugieren que YA ANALIZASTE código antes
+de usar esta herramienta. Esto puede sesgar el análisis.
+
+❌ INCORRECTO: Analizar → Usar herramienta (conclusiones sesgadas)
+✅ CORRECTO: Usar herramienta → Analizar (guiado por criterios)
+
+Si ya analizaste, considera:
+- ¿Tus criterios reflejan lo que el USUARIO quiere, o lo que TÚ encontraste?
+- ¿Estás definiendo QUÉ debe cumplirse, o CÓMO implementarlo?
+
+"""
+
+        if criterios_con_codigo:
+            advertencias_texto += f"""
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ ADVERTENCIA: CRITERIOS CON CÓDIGO/IMPLEMENTACIÓN
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Los criterios #{', #'.join(map(str, criterios_con_codigo))} contienen cosas
+concretas (código, debugging, flujo técnico) que sesgan el análisis.
+
+Estás buscando POR QUÉ no funciona y te olvidas de la FUNCIONALIDAD que
+debería cumplir.
+
+Los criterios deben describir la FUNCIONALIDAD que el usuario espera, no el
+proceso de investigación ni detalles de implementación.
+
+Ejemplo - sesga el análisis:
+   "Identificar el punto exacto donde falla el flujo"
+   "Verificar que los datos (answer, type) llegan correctamente"
+
+Ejemplo - describe la funcionalidad:
+   "Todos los mensajes del Master deben quedar registrados en el chat privado"
+   "Los observadores deben ver estos mensajes igual que el Master"
+
+"""
 
         return f"""
 ╔══════════════════════════════════════════════════════════════════╗
@@ -808,7 +929,7 @@ async def step0_criterios(tarea: str, reformulacion: str, criterios: list, confi
 
 📐 CRITERIOS DE ÉXITO PROPUESTOS:
 {criterios_fmt}
-
+{advertencias_texto}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🚨 INSTRUCCIÓN OBLIGATORIA:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -2032,8 +2153,66 @@ NOMENCLATURA CORRECTA:
     return response
 
 
-async def step6_verificar_dependencias(project_path: str, dependencies: list, decision_usuario: bool = False) -> str:
-    """PASO 6: Verificar dependencias externas antes de escribir código"""
+def extraer_propiedades_referencia(content: str, lines: list, must_document: list, language: str) -> dict:
+    """Extrae propiedades específicas de código de referencia.
+
+    Args:
+        content: Contenido completo del archivo
+        lines: Lista de líneas del contenido (o subset si se especificó rango)
+        must_document: Lista de propiedades a buscar
+        language: Lenguaje del código
+
+    Returns:
+        dict con propiedades encontradas y faltantes
+    """
+    found = {}
+    missing = []
+
+    # Unir líneas para búsqueda
+    text = '\n'.join(lines)
+
+    for prop in must_document:
+        # Patrones de búsqueda según lenguaje
+        if language == "godot":
+            # Buscar en código GDScript: propiedad = valor
+            patterns = [
+                rf'{re.escape(prop)}\s*=\s*([^\n]+)',  # variable = valor
+                rf'\.{re.escape(prop)}\s*=\s*([^\n]+)',  # .propiedad = valor
+            ]
+            # Buscar en .tscn: propiedad = valor
+            patterns.append(rf'{re.escape(prop)}\s*=\s*([^\n]+)')
+        elif language == "python":
+            patterns = [
+                rf'{re.escape(prop)}\s*=\s*([^\n]+)',  # variable = valor
+                rf'self\.{re.escape(prop)}\s*=\s*([^\n]+)',  # self.prop = valor
+            ]
+        else:
+            patterns = [
+                rf'{re.escape(prop)}\s*[=:]\s*([^\n,}}]+)',  # prop = valor o prop: valor
+            ]
+
+        value_found = None
+        for pattern in patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                value_found = match.group(1).strip().rstrip(',').rstrip(';')
+                break
+
+        if value_found:
+            found[prop] = value_found
+        else:
+            missing.append(prop)
+
+    return {
+        "found": found,
+        "missing": missing,
+        "total_requested": len(must_document),
+        "total_found": len(found)
+    }
+
+
+async def step6_verificar_dependencias(project_path: str, dependencies: list = None, references: list = None, decision_usuario: bool = False) -> str:
+    """PASO 6: Verificar dependencias externas y referencias antes de escribir código"""
 
     # Verificar paso anterior
     if not SESSION_STATE["step_5"]:
@@ -2048,9 +2227,17 @@ async def step6_verificar_dependencias(project_path: str, dependencies: list, de
         return f"Error: El directorio {project_path} no existe"
 
     language = SESSION_STATE.get("current_language", "godot")
+
+    # Inicializar listas si son None
+    if dependencies is None:
+        dependencies = []
+    if references is None:
+        references = []
+
     verified = []
     issues = []
 
+    # Procesar dependencias (funciones)
     for dep in dependencies:
         file_rel = dep.get("file", "")
         func_name = dep.get("function", "")
@@ -2138,6 +2325,86 @@ async def step6_verificar_dependencias(project_path: str, dependencies: list, de
                 "return": real_return
             })
 
+    # Procesar referencias (código a replicar)
+    extracted_references = []
+    reference_warnings = []
+
+    for ref in references:
+        file_rel = ref.get("file", "")
+        start_line = ref.get("start_line")
+        end_line = ref.get("end_line")
+        search_pattern = ref.get("search_pattern")
+        must_document = ref.get("must_document", [])
+
+        file_path_ref = path / file_rel
+
+        # Verificar que el archivo existe
+        if not file_path_ref.exists():
+            reference_warnings.append({
+                "file": file_rel,
+                "message": f"⚠️ Archivo de referencia no existe: {file_rel}"
+            })
+            continue
+
+        # Leer contenido
+        try:
+            content = file_path_ref.read_text(encoding='utf-8', errors='ignore')
+            all_lines = content.split('\n')
+        except Exception as e:
+            reference_warnings.append({
+                "file": file_rel,
+                "message": f"⚠️ Error leyendo archivo de referencia: {e}"
+            })
+            continue
+
+        # Determinar líneas a analizar
+        if start_line and end_line:
+            # Rango específico (1-indexed)
+            lines_to_analyze = all_lines[start_line - 1:end_line]
+            line_range = f"{start_line}-{end_line}"
+        elif search_pattern:
+            # Buscar patrón y extraer contexto
+            lines_to_analyze = []
+            line_range = "patrón encontrado"
+            for i, line in enumerate(all_lines):
+                if re.search(search_pattern, line, re.IGNORECASE):
+                    # Extraer contexto: 5 líneas antes y 15 después
+                    start_idx = max(0, i - 5)
+                    end_idx = min(len(all_lines), i + 15)
+                    lines_to_analyze = all_lines[start_idx:end_idx]
+                    line_range = f"{start_idx + 1}-{end_idx}"
+                    break
+            if not lines_to_analyze:
+                reference_warnings.append({
+                    "file": file_rel,
+                    "message": f"⚠️ Patrón '{search_pattern}' no encontrado en {file_rel}"
+                })
+                continue
+        else:
+            # Todo el archivo
+            lines_to_analyze = all_lines
+            line_range = "completo"
+
+        # Extraer propiedades
+        extraction = extraer_propiedades_referencia(content, lines_to_analyze, must_document, language)
+
+        extracted_references.append({
+            "file": file_rel,
+            "line_range": line_range,
+            "found": extraction["found"],
+            "missing": extraction["missing"],
+            "must_document": must_document
+        })
+
+        if extraction["missing"]:
+            reference_warnings.append({
+                "file": file_rel,
+                "message": f"⚠️ Propiedades no encontradas en {file_rel}: {', '.join(extraction['missing'])}"
+            })
+
+    # Guardar en SESSION_STATE para que validate las use
+    SESSION_STATE["reference_properties"] = extracted_references
+
     # Construir respuesta
     if issues:
         response = f"""
@@ -2188,15 +2455,46 @@ Opciones:
 ║  "Verificar ANTES de escribir, no DESPUÉS de fallar"             ║
 ╚══════════════════════════════════════════════════════════════════╝
 
-✅ TODAS LAS DEPENDENCIAS VERIFICADAS: {len(verified)}
-
 """
-    for v in verified:
-        response += f"   ✓ {v['file']}:{v['function']}({v['params']}) -> {v['return']}\n"
+    # Mostrar dependencias verificadas
+    if verified:
+        response += f"✅ DEPENDENCIAS VERIFICADAS: {len(verified)}\n\n"
+        for v in verified:
+            response += f"   ✓ {v['file']}:{v['function']}({v['params']}) -> {v['return']}\n"
+        response += "\n"
 
-    response += f"""
+    # Mostrar referencias extraídas (NUEVO)
+    if extracted_references:
+        response += f"""
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 REFERENCIAS ANALIZADAS (código a replicar): {len(extracted_references)}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+"""
+        for ref in extracted_references:
+            response += f"📄 {ref['file']} (líneas: {ref['line_range']})\n"
+            if ref['found']:
+                response += "   Propiedades encontradas:\n"
+                for prop, value in ref['found'].items():
+                    response += f"   • {prop} = {value}\n"
+            if ref['missing']:
+                response += f"   ⚠️ No encontradas: {', '.join(ref['missing'])}\n"
+            response += "\n"
+
+        response += """━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ DEBES replicar TODAS estas propiedades en tu código.
+   validate (paso 8) verificará que las hayas incluido.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+"""
+
+    # Mostrar advertencias de referencias
+    if reference_warnings:
+        response += "\n⚠️ ADVERTENCIAS DE REFERENCIAS:\n"
+        for warn in reference_warnings:
+            response += f"   {warn['message']}\n"
+        response += "\n"
+
+    response += f"""
 ✅ PASO 6 COMPLETADO
 
 ➡️ SIGUIENTE:
@@ -2311,6 +2609,42 @@ herencia, estructura, dependencias ni detectar problemas reales.
     duplicates = sum(1 for v in line_counts.values() if v >= 3)
     if duplicates > 0:
         issues.append(f"❌ DRY: {duplicates} líneas repetidas 3+ veces. Extrae a función/componente.")
+
+    # Verificar propiedades de referencia (del paso 6)
+    reference_properties = SESSION_STATE.get("reference_properties", [])
+    missing_reference_props = []
+
+    for ref in reference_properties:
+        ref_file = ref.get("file", "")
+        found_props = ref.get("found", {})
+
+        for prop, expected_value in found_props.items():
+            # Buscar la propiedad en el código escrito
+            # Patrones flexibles: prop = valor, .prop = valor, self.prop = valor
+            patterns = [
+                rf'{re.escape(prop)}\s*=\s*',
+                rf'\.{re.escape(prop)}\s*=\s*',
+            ]
+
+            prop_found = False
+            for pattern in patterns:
+                if re.search(pattern, code, re.IGNORECASE):
+                    prop_found = True
+                    break
+
+            if not prop_found:
+                missing_reference_props.append({
+                    "property": prop,
+                    "expected_value": expected_value,
+                    "source_file": ref_file
+                })
+
+    if missing_reference_props:
+        warnings.append(f"⚠️ Propiedades de referencia no replicadas ({len(missing_reference_props)}):")
+        for mp in missing_reference_props[:5]:  # Mostrar máx 5
+            warnings.append(f"   • {mp['property']} = {mp['expected_value']} (de {mp['source_file']})")
+        if len(missing_reference_props) > 5:
+            warnings.append(f"   ... y {len(missing_reference_props) - 5} más")
 
     # Construir respuesta
     response = f"""

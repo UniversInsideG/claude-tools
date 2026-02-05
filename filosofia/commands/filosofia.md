@@ -6,6 +6,34 @@ description: Activa la filosofía de programación modular usando MCP (10 pasos)
 > **"Verificar ANTES de escribir, no DESPUÉS de fallar"**
 > **"Documentar DESPUÉS de validar"**
 
+## ⛔ REGLA CRÍTICA: NO ANALICES ANTES DE USAR ESTA HERRAMIENTA
+
+**PROHIBIDO** analizar código, leer archivos, o sacar conclusiones ANTES de usar `philosophy_q0_criterios`.
+
+❌ **INCORRECTO:**
+```
+Usuario: "Investiga este bug"
+Claude: [lee código, saca conclusiones] ← PROHIBIDO
+Claude: [usa q0 con criterios sesgados]
+```
+
+✅ **CORRECTO:**
+```
+Usuario: "Investiga este bug"
+Claude: [usa q0 PRIMERO para definir criterios con el usuario]
+Claude: [DESPUÉS analiza código guiado por los criterios acordados]
+```
+
+**¿Por qué?** Cuando analizas antes:
+- Haces análisis superficial ("tirando los dados")
+- Llegas a q0 con conclusiones sesgadas
+- Los criterios se contaminan con detalles de implementación
+- El análisis profundo de las herramientas se pierde
+
+**Las herramientas GUÍAN el análisis, no lo validan después.**
+
+---
+
 ## ANTES DE TODO: COMPRENDER LA TAREA
 
 Usa `philosophy_q0_criterios` con `confirmado_por_usuario=false` para iniciar la fase de comprensión. El MCP te guiará para:

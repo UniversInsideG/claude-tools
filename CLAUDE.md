@@ -62,9 +62,9 @@ Single-file Python server implementing all MCP tools:
 3. `philosophy_q3_buscar` - Search for similar code/docs
 4. `philosophy_q4_herencia` - Inheritance decision
 5. `philosophy_q5_nivel` - Architecture level validation
-6. `philosophy_q6_verificar_dependencias` - Verify external dependencies exist
+6. `philosophy_q6_verificar_dependencias` - Verify external dependencies AND references (code to replicate)
 7. (Write code)
-8. `philosophy_validate` - Code validation (smells, duplication)
+8. `philosophy_validate` - Code validation (smells, duplication, reference properties)
 9. `philosophy_q9_documentar` - Document changes (mandatory)
 
 **Auxiliary Tools:**
@@ -88,6 +88,7 @@ The server maintains two state dictionaries:
 - `SESSION_STATE` - Tracks the 10-step flow progress (resets per creation)
   - Includes `duplication_detected` with similarity analysis from q3
   - Includes `criterios_file` with path to criteria file written by q0
+  - Includes `reference_properties` with extracted properties from q6 references (v2.2.0)
 - `ARCHITECTURE_STATE` - Tracks architecture analysis progress (persists)
 
 ### 5-Level Architecture (equivalent to Atomic Design)
@@ -99,6 +100,30 @@ ESTRUCTURA (main.tscn)
                 └── COMPONENTE (*_component) - Combines pieces
                       └── PIEZA (*_piece) - Atomic, ONE thing
 ```
+
+## Critical Rule: Tools Guide Analysis (v2.3.0)
+
+**PROHIBITED:** Analyzing code, reading files, or drawing conclusions BEFORE using `philosophy_q0_criterios` or `philosophy_architecture_analysis`.
+
+**Why this matters:**
+- When Claude analyzes before using tools, the analysis is superficial (guessing, assumptions, erratic changes)
+- This biases the criteria in q0, which should reflect what the USER wants, not what Claude found
+- The deep analysis that prevents errors gets lost
+
+**Correct flow:**
+```
+User: "Investigate this bug"
+Claude: [uses q0 FIRST to define criteria with user]
+Claude: [THEN analyzes code guided by agreed criteria]
+```
+
+**q0 now detects (v2.3.0):**
+1. Prior analysis patterns in reformulation (e.g., "I found", "the bug is", "line 123")
+2. Implementation details in criteria instead of functional requirements
+
+**Good vs Bad criteria:**
+- ❌ BAD: "use layout_mode = 0" (implementation detail)
+- ✅ GOOD: "image should scale maintaining aspect ratio" (functional requirement)
 
 ## Key Concepts
 
@@ -114,6 +139,8 @@ ESTRUCTURA (main.tscn)
 - **Duplication detection (v1.7.0)**: q3 detects REAL duplication (>60% similarity between files)
 - **User must decide on duplication**: Claude must ANALYZE, EXPLAIN, and ASK user before continuing
 - **Ignore requires keyword**: Option D "Ignore" requires justification starting with "USUARIO:"
+- **Reference analysis (v2.2.0)**: q6 accepts optional `references` parameter to extract properties from code to replicate
+- **Reference verification (v2.2.0)**: validate checks that reference properties were included in written code
 
 ## User Decision Parameter (v1.8.0)
 
@@ -123,6 +150,31 @@ All tools q2-q9 support `decision_usuario: bool` parameter:
 - If user decides to continue (taking responsibility), Claude calls again with `decision_usuario=true`
 - The previous step is marked as completed and flow continues
 - This allows users to override MCP suggestions when they have valid reasons (project conventions, exceptions, etc.)
+
+## Reference Analysis (v2.2.0)
+
+q6 now supports a `references` parameter for exhaustive analysis of code to replicate:
+
+```python
+"references": [
+    {
+        "file": "scripts/master.gd",      # Required: file path
+        "start_line": 2132,               # Optional: 1-indexed
+        "end_line": 2150,                 # Optional: 1-indexed
+        "search_pattern": "TextureRect",  # Optional: find block by pattern
+        "must_document": ["layout_mode", "anchors_preset", "stretch_mode"]  # Required
+    }
+]
+```
+
+**How it works:**
+1. q6 reads the reference file and extracts values for `must_document` properties
+2. Shows extracted values in output (forces Claude to see them)
+3. Saves properties in `SESSION_STATE["reference_properties"]`
+4. validate (step 8) checks that written code includes these properties
+5. If properties are missing, validate shows warning
+
+**Use case:** When replicating UI configurations, node properties, or code patterns that must match exactly.
 
 ## Language Support
 
