@@ -145,6 +145,9 @@ Claude: [THEN analyzes code guided by agreed criteria]
 - **Validate .tscn (v2.4.0)**: step8_validate has dedicated branch for .tscn/.tres files with DRY checks (duplicate SubResources, repeated theme_overrides, hardcoded colors)
 - **q3 ripgrep (v2.4.0)**: Search uses `rg` subprocess when available, falls back to Python rglob
 - **Checkpoint 4 hard STOP (v2.4.0)**: Architecture checkpoint 4 returns STOP requiring user confirmation via AskUserQuestion before implementation
+- **q0 presentation gate (v2.4.0)**: `step_0_presented` blocks `confirmado_por_usuario=true` if criteria weren't presented first with `confirmado_por_usuario=false`
+- **architecture_analysis criterios_file (v2.4.0)**: Accepts optional `criterios_file` parameter to use criteria from a previous session without blocking
+- **q9 descripcion_funcional (v2.4.0)**: New parameter to document what changes for the user (functional), not just the technical change. CHANGELOG template shows both lines.
 
 ## User Decision Parameter (v2.4.0, replaces v1.8.0)
 
@@ -159,7 +162,7 @@ All tools q2-q9 support a **two-step** process to skip steps:
 - Allows skipping the step
 
 **Guards:**
-- Both params in same call → rejected
+- Both params in same call → resolved in one step (if `justificacion_salto` provided or stored)
 - `usuario_verifico` without prior justification → rejected
 - `decision_usuario` without `justificacion_salto` → rejected
 

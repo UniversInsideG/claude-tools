@@ -16,6 +16,15 @@ Historial de cambios del MCP de Filosofía de Programación UniversInside.
 - **Parámetros nuevos en schemas**: `justificacion_salto` (string) y `usuario_verifico` (boolean) en todas las herramientas q2-q9
 - **`decision_pendiente` en SESSION_STATE**: Dict para almacenar justificaciones pendientes de verificación del usuario
 
+### Corregido
+- **`decision_usuario` + `usuario_verifico` juntos**: Ya no devuelve "LLAMADA INVÁLIDA". Si ambos se envían con `justificacion_salto`, resuelve en un solo paso.
+- **q0 gate `step_0_presented`**: Bloquea `confirmado_por_usuario=true` si no se presentaron criterios primero con `confirmado_por_usuario=false`. Impide que Claude salte la presentación de criterios al usuario.
+- **`architecture_analysis` criterios en disco**: Nuevo parámetro `criterios_file` para especificar qué archivo de criterios usar de sesión anterior. Ya no bloquea sin crear el archivo de análisis.
+
+### Añadido (post-release)
+- **q9 `descripcion_funcional`**: Nuevo parámetro para documentar qué cambia para el usuario, no solo el cambio técnico. El template del CHANGELOG incluye ambas líneas (Funcionalidad + Técnico).
+- **CLAUDE.md regla MCP al inicio**: La regla de usar `philosophy_q0_criterios` antes de Edit/Write se mueve al principio del archivo global y de `filosofia/CLAUDE.md`.
+
 ### Cambiado
 - `generar_error_paso_saltado` ya no menciona `decision_usuario=true` como bypass directo
 - Checkpoint 4 y `architecture_resume` usan instrucción de STOP con 3 opciones (implementar, ajustar, solo análisis)
