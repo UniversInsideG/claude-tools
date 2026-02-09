@@ -254,6 +254,10 @@ Write-Host "  - NUEVO: q3 usa ripgrep (rg) para busquedas rapidas, fallback a Py
 Write-Host "  - NUEVO: q0 bloquea criterios de implementacion en segunda llamada"
 Write-Host "  - NUEVO: Checkpoint 4 STOP obligatorio antes de implementar"
 Write-Host "  - FIX: decision_usuario + usuario_verifico juntos resuelve en 1 paso"
+Write-Host "  - FIX: q0 bloquea confirmado=true si no se presentaron criterios primero"
+Write-Host "  - FIX: architecture_analysis acepta criterios_file de sesion anterior"
+Write-Host "  - NUEVO: q9 pide descripcion funcional ademas de tecnica"
+Write-Host "  - NUEVO: CLAUDE.md con regla MCP al inicio del archivo"
 Write-Host ""
 Write-Host "Incluye v2.3.0:" -ForegroundColor Gray
 Write-Host "  - q0 detecta criterios sesgados, skills advierten NO analizar antes de q0"
