@@ -1,8 +1,8 @@
-# Instalador de Philosophy MCP para Windows (v2.3.0)
+# Instalador de Philosophy MCP para Windows (v2.4.0)
 # Ejecutar como: powershell -ExecutionPolicy Bypass -File install-windows.ps1
 
 Write-Host ""
-Write-Host "=== Instalador Philosophy MCP v2.3.0 ===" -ForegroundColor Cyan
+Write-Host "=== Instalador Philosophy MCP v2.4.0 ===" -ForegroundColor Cyan
 Write-Host ""
 
 # Verificar Python
@@ -247,19 +247,18 @@ Write-Host "  - Hook: planning_reminder.py (filosofia de codigo)"
 Write-Host "  - Hook Stop: detecta pregunta + ejecucion en el mismo turno"
 Write-Host "  - Hooks configurados en 4 eventos: Stop, UserPromptSubmit, PreToolUse, PostToolUse"
 Write-Host ""
-Write-Host "Novedades v2.3.0:" -ForegroundColor Cyan
-Write-Host "  - NUEVO: q0 detecta criterios con implementacion en vez de funcionalidad"
-Write-Host "  - NUEVO: Advertencia cuando buscas POR QUE falla y olvidas la FUNCIONALIDAD"
-Write-Host "  - NUEVO: Skills /filosofia y /arquitectura advierten NO analizar antes de q0"
+Write-Host "Novedades v2.4.0 (adaptacion Claude 4.6):" -ForegroundColor Cyan
+Write-Host "  - NUEVO: decision_usuario requiere 2 pasos (justificacion + verificacion usuario)"
+Write-Host "  - NUEVO: validate soporta archivos .tscn con checks DRY"
+Write-Host "  - NUEVO: q3 usa ripgrep (rg) para busquedas rapidas, fallback a Python"
+Write-Host "  - NUEVO: q0 bloquea criterios de implementacion en segunda llamada"
+Write-Host "  - NUEVO: Checkpoint 4 STOP obligatorio antes de implementar"
 Write-Host ""
-Write-Host "Incluye v2.2.0:" -ForegroundColor Gray
-Write-Host "  - q6 acepta 'references' para analisis exhaustivo de codigo a replicar"
-Write-Host "  - validate verifica que propiedades de referencia se incluyan"
+Write-Host "Incluye v2.3.0:" -ForegroundColor Gray
+Write-Host "  - q0 detecta criterios sesgados, skills advierten NO analizar antes de q0"
 Write-Host ""
-Write-Host "Incluye v2.1.0:" -ForegroundColor Gray
-Write-Host "  - Paso 0 obligatorio (q0_criterios)"
-Write-Host "  - Hook Stop - bloquea pregunta + ejecucion en mismo turno"
-Write-Host "  - Criterios persistentes en .claude/criterios_*.md"
+Write-Host "Incluye v2.1-2.2:" -ForegroundColor Gray
+Write-Host "  - Paso 0, criterios persistentes, q6 references, Hook Stop"
 Write-Host ""
 Write-Host "Proximos pasos:" -ForegroundColor Yellow
 Write-Host "  1. Reinicia Claude Code"

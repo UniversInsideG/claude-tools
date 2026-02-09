@@ -133,7 +133,7 @@ Claude: [THEN analyzes code guided by agreed criteria]
 - **Flow is mandatory**: All 10 steps must be completed in order
 - **Step skipping blocked**: Server returns error if steps are skipped
 - **User decision required**: When skipping is attempted, Claude must explain and ask user
-- **User can override (v1.8.0)**: After user decides, call with `decision_usuario=true` to continue
+- **User decision two-step (v2.4.0)**: Skipping steps requires two calls: 1) `decision_usuario=true` + `justificacion_salto`, 2) `usuario_verifico=true` after user confirms
 - **Warnings require confirmation**: Validation warnings need explicit user approval
 - **Documentation is mandatory**: Step 9 cannot be skipped
 - **Duplication detection (v1.7.0)**: q3 detects REAL duplication (>60% similarity between files)
@@ -141,15 +141,27 @@ Claude: [THEN analyzes code guided by agreed criteria]
 - **Ignore requires keyword**: Option D "Ignore" requires justification starting with "USUARIO:"
 - **Reference analysis (v2.2.0)**: q6 accepts optional `references` parameter to extract properties from code to replicate
 - **Reference verification (v2.2.0)**: validate checks that reference properties were included in written code
+- **q0 blocks implementation criteria (v2.4.0)**: Second call (`confirmado_por_usuario=true`) re-checks criteria patterns and blocks if implementation details found
+- **Validate .tscn (v2.4.0)**: step8_validate has dedicated branch for .tscn/.tres files with DRY checks (duplicate SubResources, repeated theme_overrides, hardcoded colors)
+- **q3 ripgrep (v2.4.0)**: Search uses `rg` subprocess when available, falls back to Python rglob
+- **Checkpoint 4 hard STOP (v2.4.0)**: Architecture checkpoint 4 returns STOP requiring user confirmation via AskUserQuestion before implementation
 
-## User Decision Parameter (v1.8.0)
+## User Decision Parameter (v2.4.0, replaces v1.8.0)
 
-All tools q2-q9 support `decision_usuario: bool` parameter:
+All tools q2-q9 support a **two-step** process to skip steps:
 
-- When MCP blocks a step, Claude must EXPLAIN and ASK user with AskUserQuestion
-- If user decides to continue (taking responsibility), Claude calls again with `decision_usuario=true`
-- The previous step is marked as completed and flow continues
-- This allows users to override MCP suggestions when they have valid reasons (project conventions, exceptions, etc.)
+**Step 1:** Call with `decision_usuario=true` + `justificacion_salto="reason"`
+- MCP stores the justification and returns STOP
+- Claude must present justification to user with AskUserQuestion
+
+**Step 2:** Call with `usuario_verifico=true` (after user confirms)
+- MCP verifies stored justification exists
+- Allows skipping the step
+
+**Guards:**
+- Both params in same call → rejected
+- `usuario_verifico` without prior justification → rejected
+- `decision_usuario` without `justificacion_salto` → rejected
 
 ## Reference Analysis (v2.2.0)
 

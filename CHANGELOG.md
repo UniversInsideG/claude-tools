@@ -4,6 +4,24 @@ Historial de cambios del MCP de Filosofía de Programación UniversInside.
 
 ---
 
+## [2.4.0] - 2026-02-07
+
+### Añadido
+- **`decision_usuario` dos pasos**: Ahora saltar pasos requiere 2 llamadas separadas: 1) `decision_usuario=true` + `justificacion_salto` → registra y pide STOP, 2) `usuario_verifico=true` → verifica justificación previa y permite continuar. Impide que Claude salte pasos sin preguntar al usuario.
+- **Helper `manejar_decision_usuario`**: Función centralizada que gestiona el proceso de dos pasos para las 7 herramientas (q2-q9)
+- **Validate `.tscn`**: Rama de validación específica para archivos de escena Godot con checks DRY: SubResources duplicados, theme_overrides repetidos, colores hardcodeados
+- **q3 ripgrep**: Búsqueda por nombre y contenido usa `rg` (ripgrep) vía subprocess. Fallback a Python rglob si `rg` no está disponible. Reduce tiempos de búsqueda de minutos a segundos en proyectos grandes.
+- **q0 bloqueo en segunda llamada**: `confirmado_por_usuario=true` ahora re-verifica patrones de criterios de implementación. Si detecta criterios con código/debugging, devuelve error bloqueante pidiendo reformular.
+- **Checkpoint 4 STOP hard**: Al completar las 4 fases de análisis arquitectónico, el MCP devuelve STOP obligatorio que exige presentar el plan al usuario con AskUserQuestion antes de implementar.
+- **Parámetros nuevos en schemas**: `justificacion_salto` (string) y `usuario_verifico` (boolean) en todas las herramientas q2-q9
+- **`decision_pendiente` en SESSION_STATE**: Dict para almacenar justificaciones pendientes de verificación del usuario
+
+### Cambiado
+- `generar_error_paso_saltado` ya no menciona `decision_usuario=true` como bypass directo
+- Checkpoint 4 y `architecture_resume` usan instrucción de STOP con 3 opciones (implementar, ajustar, solo análisis)
+
+---
+
 ## [2.1.0] - 2026-02-01
 
 ### Añadido

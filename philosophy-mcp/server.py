@@ -47,6 +47,8 @@ SESSION_STATE = {
     "verified_dependencies": None,  # Dependencias verificadas en q6
     "duplication_detected": None,  # Resultado de detección de duplicación en q3
     "criterios_file": None,  # Ruta del archivo de criterios creado por q0
+    "reference_properties": [],  # Propiedades de referencia extraídas en q6
+    "decision_pendiente": {},  # Justificaciones pendientes de verificación del usuario
 }
 
 def reset_state():
@@ -68,6 +70,8 @@ def reset_state():
     SESSION_STATE["verified_dependencies"] = None
     SESSION_STATE["duplication_detected"] = None
     SESSION_STATE["criterios_file"] = None
+    SESSION_STATE["reference_properties"] = []
+    SESSION_STATE["decision_pendiente"] = {}
 
 
 # ============================================================
@@ -137,6 +141,109 @@ EL USUARIO NECESITA TU ARGUMENTO PARA EVALUAR SI ES VÁLIDO.
    la decisión conscientemente (asume la responsabilidad).
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
+
+
+def manejar_decision_usuario(paso_faltante: str, paso_actual: str,
+                              decision_usuario: bool = False,
+                              justificacion_salto: str = None,
+                              usuario_verifico: bool = False):
+    """Proceso de dos pasos para saltar pasos con verificación del usuario.
+
+    Paso 1: Claude llama con decision_usuario=true + justificacion_salto
+            → Se almacena la justificación, se devuelve STOP
+    Paso 2: Claude llama con usuario_verifico=true (después de preguntar al usuario)
+            → Se verifica que hay justificación almacenada, se permite continuar
+
+    Returns None para continuar, o string con mensaje para devolver a Claude.
+    """
+    decision_key = f"decision_{paso_actual}"
+
+    # Si ambos llegan juntos, resolver en un solo paso
+    if decision_usuario and usuario_verifico:
+        if justificacion_salto:
+            # Tiene justificación: almacenar y proceder directamente
+            del_key = SESSION_STATE["decision_pendiente"].get(decision_key)
+            if del_key:
+                del SESSION_STATE["decision_pendiente"][decision_key]
+            return None  # Proceder
+        # Sin justificación: verificar si hay una almacenada de antes
+        stored = SESSION_STATE["decision_pendiente"].get(decision_key)
+        if stored:
+            del SESSION_STATE["decision_pendiente"][decision_key]
+            return None  # Proceder
+        # Nada: pedir justificación
+        return f"""
+╔══════════════════════════════════════════════════════════════════╗
+║  ❌ FALTA JUSTIFICACIÓN                                           ║
+╚══════════════════════════════════════════════════════════════════╝
+
+Enviaste decision_usuario=true + usuario_verifico=true pero sin justificacion_salto.
+Añade justificacion_salto="tu razón para saltar {paso_faltante}" en la misma llamada.
+"""
+
+    # Paso 2: Usuario ya verificó
+    if usuario_verifico:
+        stored = SESSION_STATE["decision_pendiente"].get(decision_key)
+        if not stored:
+            return f"""
+╔══════════════════════════════════════════════════════════════════╗
+║  ❌ NO HAY JUSTIFICACIÓN REGISTRADA                               ║
+╚══════════════════════════════════════════════════════════════════╝
+
+No puedes usar usuario_verifico=true sin haber llamado antes con
+decision_usuario=true + justificacion_salto.
+
+Flujo correcto:
+1. Llama con decision_usuario=true, justificacion_salto="tu razón"
+2. Presenta la justificación al usuario con AskUserQuestion
+3. Si el usuario acepta → llama con usuario_verifico=true
+"""
+        # Limpiar estado y permitir continuar
+        del SESSION_STATE["decision_pendiente"][decision_key]
+        return None  # None = proceder
+
+    # Paso 1: Claude proporciona justificación
+    if decision_usuario:
+        if not justificacion_salto:
+            return f"""
+╔══════════════════════════════════════════════════════════════════╗
+║  ❌ FALTA JUSTIFICACIÓN                                           ║
+╚══════════════════════════════════════════════════════════════════╝
+
+decision_usuario=true requiere el parámetro justificacion_salto
+con tu razón para saltar {paso_faltante}.
+
+Ejemplo: justificacion_salto="El paso ya se completó implícitamente porque..."
+"""
+
+        SESSION_STATE["decision_pendiente"][decision_key] = justificacion_salto
+
+        return f"""
+╔══════════════════════════════════════════════════════════════════╗
+║  ⚠️ JUSTIFICACIÓN REGISTRADA - REQUIERE VERIFICACIÓN DEL USUARIO ║
+╚══════════════════════════════════════════════════════════════════╝
+
+📝 Tu justificación para saltar {paso_faltante}:
+   "{justificacion_salto}"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🚨 INSTRUCCIÓN OBLIGATORIA:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PASO 1: Presenta al usuario tu justificación (el texto de arriba)
+PASO 2: USA AskUserQuestion para preguntar:
+   "¿Aceptas saltar {paso_faltante}?"
+   Opciones:
+   - "Sí, continuar" → Llama de nuevo con usuario_verifico=true
+   - "No, seguir el flujo" → Completa {paso_faltante}
+
+⛔ NO ejecutes {paso_actual} ni ninguna otra herramienta en este turno.
+⛔ La pregunta es el FINAL del turno.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+"""
+
+    # Sin decision_usuario ni usuario_verifico: error estándar
+    return generar_error_paso_saltado(paso_faltante, paso_actual)
 
 
 # ============================================================
@@ -296,7 +403,15 @@ Requiere: Paso 1 completado.""",
                     },
                     "decision_usuario": {
                         "type": "boolean",
-                        "description": "True si el usuario decidió continuar (asume responsabilidad). Solo usar DESPUÉS de preguntar al usuario."
+                        "description": "PASO 1 para saltar: True + justificacion_salto. El MCP registra y pide que PREGUNTES al usuario."
+                    },
+                    "justificacion_salto": {
+                        "type": "string",
+                        "description": "OBLIGATORIO con decision_usuario=true. Tu razón para saltar el paso."
+                    },
+                    "usuario_verifico": {
+                        "type": "boolean",
+                        "description": "PASO 2 para saltar: True DESPUÉS de que el usuario confirmó con AskUserQuestion."
                     }
                 },
                 "required": ["es_reutilizable", "donde_reutilizar", "justificacion"]
@@ -325,7 +440,15 @@ Requiere: Paso 2 completado.""",
                     },
                     "decision_usuario": {
                         "type": "boolean",
-                        "description": "True si el usuario decidió continuar (asume responsabilidad). Solo usar DESPUÉS de preguntar al usuario."
+                        "description": "PASO 1 para saltar: True + justificacion_salto. El MCP registra y pide que PREGUNTES al usuario."
+                    },
+                    "justificacion_salto": {
+                        "type": "string",
+                        "description": "OBLIGATORIO con decision_usuario=true. Tu razón para saltar el paso."
+                    },
+                    "usuario_verifico": {
+                        "type": "boolean",
+                        "description": "PASO 2 para saltar: True DESPUÉS de que el usuario confirmó con AskUserQuestion."
                     }
                 },
                 "required": ["search_term", "project_path"]
@@ -354,7 +477,15 @@ Requiere: Paso 3 completado.""",
                     },
                     "decision_usuario": {
                         "type": "boolean",
-                        "description": "True si el usuario decidió continuar (asume responsabilidad). Solo usar DESPUÉS de preguntar al usuario."
+                        "description": "PASO 1 para saltar: True + justificacion_salto. El MCP registra y pide que PREGUNTES al usuario."
+                    },
+                    "justificacion_salto": {
+                        "type": "string",
+                        "description": "OBLIGATORIO con decision_usuario=true. Tu razón para saltar el paso."
+                    },
+                    "usuario_verifico": {
+                        "type": "boolean",
+                        "description": "PASO 2 para saltar: True DESPUÉS de que el usuario confirmó con AskUserQuestion."
                     }
                 },
                 "required": ["hereda_de", "reutiliza_existente", "justificacion_herencia"]
@@ -385,7 +516,15 @@ Requiere: Paso 4 completado.""",
                     },
                     "decision_usuario": {
                         "type": "boolean",
-                        "description": "True si el usuario decidió continuar (asume responsabilidad). Solo usar DESPUÉS de preguntar al usuario."
+                        "description": "PASO 1 para saltar: True + justificacion_salto. El MCP registra y pide que PREGUNTES al usuario."
+                    },
+                    "justificacion_salto": {
+                        "type": "string",
+                        "description": "OBLIGATORIO con decision_usuario=true. Tu razón para saltar el paso."
+                    },
+                    "usuario_verifico": {
+                        "type": "boolean",
+                        "description": "PASO 2 para saltar: True DESPUÉS de que el usuario confirmó con AskUserQuestion."
                     }
                 },
                 "required": ["nivel", "filename", "justificacion_nivel"]
@@ -476,7 +615,15 @@ Requiere: Paso 5 completado.""",
                     },
                     "decision_usuario": {
                         "type": "boolean",
-                        "description": "True si el usuario decidió continuar (asume responsabilidad). Solo usar DESPUÉS de preguntar al usuario."
+                        "description": "PASO 1 para saltar: True + justificacion_salto. El MCP registra y pide que PREGUNTES al usuario."
+                    },
+                    "justificacion_salto": {
+                        "type": "string",
+                        "description": "OBLIGATORIO con decision_usuario=true. Tu razón para saltar el paso."
+                    },
+                    "usuario_verifico": {
+                        "type": "boolean",
+                        "description": "PASO 2 para saltar: True DESPUÉS de que el usuario confirmó con AskUserQuestion."
                     }
                 },
                 "required": ["project_path"]
@@ -512,7 +659,15 @@ Usa usuario_confirmo_warnings=true solo DESPUÉS de que el usuario confirme.""",
                     },
                     "decision_usuario": {
                         "type": "boolean",
-                        "description": "True si el usuario decidió continuar (asume responsabilidad). Solo usar DESPUÉS de preguntar al usuario."
+                        "description": "PASO 1 para saltar: True + justificacion_salto. El MCP registra y pide que PREGUNTES al usuario."
+                    },
+                    "justificacion_salto": {
+                        "type": "string",
+                        "description": "OBLIGATORIO con decision_usuario=true. Tu razón para saltar el paso."
+                    },
+                    "usuario_verifico": {
+                        "type": "boolean",
+                        "description": "PASO 2 para saltar: True DESPUÉS de que el usuario confirmó con AskUserQuestion."
                     }
                 },
                 "required": ["filename"]
@@ -559,7 +714,15 @@ Requiere: Paso 8 (validate) completado.""",
                     },
                     "decision_usuario": {
                         "type": "boolean",
-                        "description": "True si el usuario decidió continuar (asume responsabilidad). Solo usar DESPUÉS de preguntar al usuario."
+                        "description": "PASO 1 para saltar: True + justificacion_salto. El MCP registra y pide que PREGUNTES al usuario."
+                    },
+                    "justificacion_salto": {
+                        "type": "string",
+                        "description": "OBLIGATORIO con decision_usuario=true. Tu razón para saltar el paso."
+                    },
+                    "usuario_verifico": {
+                        "type": "boolean",
+                        "description": "PASO 2 para saltar: True DESPUÉS de que el usuario confirmó con AskUserQuestion."
                     }
                 },
                 "required": ["project_path", "archivos_modificados", "descripcion_cambio", "tipo_cambio"]
@@ -729,7 +892,9 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             arguments["es_reutilizable"],
             arguments["donde_reutilizar"],
             arguments["justificacion"],
-            arguments.get("decision_usuario", False)
+            arguments.get("decision_usuario", False),
+            arguments.get("justificacion_salto"),
+            arguments.get("usuario_verifico", False)
         )
 
     elif name == "philosophy_q3_buscar":
@@ -737,7 +902,9 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             arguments["search_term"],
             arguments["project_path"],
             arguments.get("content_pattern", None),
-            arguments.get("decision_usuario", False)
+            arguments.get("decision_usuario", False),
+            arguments.get("justificacion_salto"),
+            arguments.get("usuario_verifico", False)
         )
 
     elif name == "philosophy_q4_herencia":
@@ -745,7 +912,9 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             arguments["hereda_de"],
             arguments["reutiliza_existente"],
             arguments["justificacion_herencia"],
-            arguments.get("decision_usuario", False)
+            arguments.get("decision_usuario", False),
+            arguments.get("justificacion_salto"),
+            arguments.get("usuario_verifico", False)
         )
 
     elif name == "philosophy_q5_nivel":
@@ -753,7 +922,9 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             arguments["nivel"],
             arguments["filename"],
             arguments["justificacion_nivel"],
-            arguments.get("decision_usuario", False)
+            arguments.get("decision_usuario", False),
+            arguments.get("justificacion_salto"),
+            arguments.get("usuario_verifico", False)
         )
 
     elif name == "philosophy_q6_verificar_dependencias":
@@ -761,7 +932,9 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             arguments["project_path"],
             arguments.get("dependencies", []),
             arguments.get("references", []),
-            arguments.get("decision_usuario", False)
+            arguments.get("decision_usuario", False),
+            arguments.get("justificacion_salto"),
+            arguments.get("usuario_verifico", False)
         )
 
     elif name == "philosophy_validate":
@@ -770,7 +943,9 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             filename=arguments.get("filename"),
             file_path=arguments.get("file_path"),
             usuario_confirmo_warnings=arguments.get("usuario_confirmo_warnings", False),
-            decision_usuario=arguments.get("decision_usuario", False)
+            decision_usuario=arguments.get("decision_usuario", False),
+            justificacion_salto=arguments.get("justificacion_salto"),
+            usuario_verifico=arguments.get("usuario_verifico", False)
         )
 
     elif name == "philosophy_q9_documentar":
@@ -780,7 +955,9 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             arguments["descripcion_cambio"],
             arguments["tipo_cambio"],
             arguments.get("reemplaza"),
-            arguments.get("decision_usuario", False)
+            arguments.get("decision_usuario", False),
+            arguments.get("justificacion_salto"),
+            arguments.get("usuario_verifico", False)
         )
 
     elif name == "philosophy_checklist":
@@ -946,6 +1123,37 @@ PASO 2: USA AskUserQuestion para preguntar:
 """
 
     # Segunda llamada: usuario confirmó
+    # Re-verificar criterios de implementación (Claude puede haber ajustado sin limpiar)
+    criterios_con_codigo_2 = []
+    for i, criterio in enumerate(criterios):
+        for patron in patrones_criterio_codigo:
+            if re.search(patron, criterio, re.IGNORECASE):
+                criterios_con_codigo_2.append(i + 1)
+                break
+
+    if criterios_con_codigo_2:
+        criterios_fmt_err = "\n".join(f"   {i+1}. {c}" for i, c in enumerate(criterios))
+        return f"""
+╔══════════════════════════════════════════════════════════════════╗
+║  ⛔ CRITERIOS BLOQUEADOS - CONTIENEN IMPLEMENTACIÓN               ║
+╚══════════════════════════════════════════════════════════════════╝
+
+Los criterios #{', #'.join(map(str, criterios_con_codigo_2))} contienen detalles
+de implementación, debugging o código específico:
+
+{criterios_fmt_err}
+
+Los criterios deben describir FUNCIONALIDAD, no implementación.
+
+❌ INCORRECTO: "Usar layout_mode = 0" / "Verificar que los datos llegan"
+✅ CORRECTO: "La imagen debe escalar manteniendo proporción" / "Los mensajes deben quedar registrados"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🚨 ACCIÓN: Reformula los criterios marcados como funcionales
+   y llama de nuevo con confirmado_por_usuario=false
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+"""
+
     SESSION_STATE["step_0"] = True
 
     criterios_fmt = "\n".join(f"   {i+1}. {c}" for i, c in enumerate(criterios))
@@ -1029,15 +1237,20 @@ async def step1_responsabilidad(description: str, responsabilidad: str, language
     return response
 
 
-async def step2_reutilizacion(es_reutilizable: bool, donde: str, justificacion: str, decision_usuario: bool = False) -> str:
+async def step2_reutilizacion(es_reutilizable: bool, donde: str, justificacion: str,
+                               decision_usuario: bool = False, justificacion_salto: str = None,
+                               usuario_verifico: bool = False) -> str:
     """PASO 2: ¿Puedo reutilizar?"""
 
     # Verificar paso anterior
     if not SESSION_STATE["step_1"]:
-        if decision_usuario:
-            SESSION_STATE["step_1"] = True  # Usuario decidió, marcar como completado
-        else:
-            return generar_error_paso_saltado("philosophy_q1_responsabilidad", "philosophy_q2_reutilizacion")
+        resultado = manejar_decision_usuario(
+            "philosophy_q1_responsabilidad", "philosophy_q2_reutilizacion",
+            decision_usuario, justificacion_salto, usuario_verifico
+        )
+        if resultado is not None:
+            return resultado
+        SESSION_STATE["step_1"] = True
 
     SESSION_STATE["step_2"] = True
 
@@ -1565,7 +1778,9 @@ def detectar_duplicacion(archivos: list, project_path: Path, language: str) -> d
     }
 
 
-async def step3_buscar(search_term: str, project_path: str, content_pattern: str = None, decision_usuario: bool = False) -> str:
+async def step3_buscar(search_term: str, project_path: str, content_pattern: str = None,
+                        decision_usuario: bool = False, justificacion_salto: str = None,
+                        usuario_verifico: bool = False) -> str:
     """PASO 3: ¿Existe algo similar?
 
     Busca en:
@@ -1575,41 +1790,80 @@ async def step3_buscar(search_term: str, project_path: str, content_pattern: str
 
     # Verificar paso anterior
     if not SESSION_STATE["step_2"]:
-        if decision_usuario:
-            SESSION_STATE["step_2"] = True  # Usuario decidió, marcar como completado
-        else:
-            return generar_error_paso_saltado("philosophy_q2_reutilizacion", "philosophy_q3_buscar")
+        resultado = manejar_decision_usuario(
+            "philosophy_q2_reutilizacion", "philosophy_q3_buscar",
+            decision_usuario, justificacion_salto, usuario_verifico
+        )
+        if resultado is not None:
+            return resultado
+        SESSION_STATE["step_2"] = True
 
     path = Path(project_path).expanduser().resolve()
 
     if not path.exists():
         return f"Error: El directorio {project_path} no existe"
 
-    # 1. BUSCAR EN CÓDIGO FUENTE
+    # 1. BUSCAR EN CÓDIGO FUENTE (usando ripgrep si disponible, fallback a Python)
+    import subprocess
+    import shutil
+
     found_by_name = []
-    search_lower = search_term.lower()
-
-    extensions = [".gd", ".tscn", ".py", ".php", ".js", ".ts", ".jsx", ".tsx", ".vue"]
-
-    for ext in extensions:
-        for file in path.rglob(f"*{ext}"):
-            if search_lower in file.name.lower():
-                if ".git" not in str(file) and "__pycache__" not in str(file) and "addons" not in str(file):
-                    found_by_name.append(file)
-
-    # Buscar por contenido si se proporciona patrón
     found_by_content = []
-    if content_pattern:
+    search_lower = search_term.lower()
+    extensions = [".gd", ".tscn", ".py", ".php", ".js", ".ts", ".jsx", ".tsx", ".vue"]
+    rg_available = shutil.which("rg") is not None
+
+    if rg_available:
+        # Búsqueda por nombre con ripgrep --files + grep
+        try:
+            glob_args = []
+            for ext in extensions:
+                glob_args.extend(["--glob", f"*{ext}"])
+            result = subprocess.run(
+                ["rg", "--files", "--glob", "!.git", "--glob", "!__pycache__", "--glob", "!addons"] + glob_args,
+                capture_output=True, text=True, cwd=str(path), timeout=30
+            )
+            for line in result.stdout.splitlines():
+                if search_lower in Path(line).name.lower():
+                    found_by_name.append(path / line)
+        except (subprocess.TimeoutExpired, Exception):
+            pass  # Fallback below if needed
+
+        # Búsqueda por contenido con ripgrep
+        if content_pattern:
+            try:
+                glob_args = []
+                for ext in extensions:
+                    glob_args.extend(["--glob", f"*{ext}"])
+                result = subprocess.run(
+                    ["rg", "-l", "-i", "--glob", "!.git", "--glob", "!__pycache__"] + glob_args + [content_pattern],
+                    capture_output=True, text=True, cwd=str(path), timeout=30
+                )
+                for line in result.stdout.splitlines():
+                    file_path_found = path / line
+                    if file_path_found not in found_by_name:
+                        found_by_content.append(file_path_found)
+            except (subprocess.TimeoutExpired, Exception):
+                pass
+    else:
+        # Fallback: Python rglob (lento en proyectos grandes)
         for ext in extensions:
             for file in path.rglob(f"*{ext}"):
-                if ".git" not in str(file) and "__pycache__" not in str(file):
-                    try:
-                        content = file.read_text(encoding='utf-8', errors='ignore')
-                        if re.search(content_pattern, content, re.IGNORECASE):
-                            if file not in found_by_name:
-                                found_by_content.append(file)
-                    except:
-                        pass
+                if ".git" not in str(file) and "__pycache__" not in str(file) and "addons" not in str(file):
+                    if search_lower in file.name.lower():
+                        found_by_name.append(file)
+
+        if content_pattern:
+            for ext in extensions:
+                for file in path.rglob(f"*{ext}"):
+                    if ".git" not in str(file) and "__pycache__" not in str(file):
+                        try:
+                            content = file.read_text(encoding='utf-8', errors='ignore')
+                            if re.search(content_pattern, content, re.IGNORECASE):
+                                if file not in found_by_name:
+                                    found_by_content.append(file)
+                        except:
+                            pass
 
     # 2. BUSCAR EN DOCUMENTACIÓN DEL PROYECTO
     doc_results = search_project_documentation(path, search_term)
@@ -1815,15 +2069,20 @@ async def step3_buscar(search_term: str, project_path: str, content_pattern: str
     return response
 
 
-async def step4_herencia(hereda_de: str, reutiliza: str, justificacion: str, decision_usuario: bool = False) -> str:
+async def step4_herencia(hereda_de: str, reutiliza: str, justificacion: str,
+                          decision_usuario: bool = False, justificacion_salto: str = None,
+                          usuario_verifico: bool = False) -> str:
     """PASO 4: ¿Se actualizan las instancias?"""
 
     # Verificar paso anterior
     if not SESSION_STATE["step_3"]:
-        if decision_usuario:
-            SESSION_STATE["step_3"] = True  # Usuario decidió, marcar como completado
-        else:
-            return generar_error_paso_saltado("philosophy_q3_buscar", "philosophy_q4_herencia")
+        resultado = manejar_decision_usuario(
+            "philosophy_q3_buscar", "philosophy_q4_herencia",
+            decision_usuario, justificacion_salto, usuario_verifico
+        )
+        if resultado is not None:
+            return resultado
+        SESSION_STATE["step_3"] = True
 
     # VALIDAR COHERENCIA CON DETECCIÓN DE DUPLICACIÓN
     duplicacion = SESSION_STATE.get("duplication_detected") or {}
@@ -2003,7 +2262,9 @@ def get_suggested_filename(nivel: str, current_filename: str, language: str) -> 
     return f"{name_without_ext}{suffix}{ext}"
 
 
-async def step5_nivel(nivel: str, filename: str, justificacion: str, decision_usuario: bool = False) -> str:
+async def step5_nivel(nivel: str, filename: str, justificacion: str,
+                       decision_usuario: bool = False, justificacion_salto: str = None,
+                       usuario_verifico: bool = False) -> str:
     """PASO 5: ¿Está en el nivel correcto de la jerarquía?
 
     Valida el COMPORTAMIENTO del código (según justificación), no solo el nombre.
@@ -2012,10 +2273,13 @@ async def step5_nivel(nivel: str, filename: str, justificacion: str, decision_us
 
     # Verificar paso anterior
     if not SESSION_STATE["step_4"]:
-        if decision_usuario:
-            SESSION_STATE["step_4"] = True  # Usuario decidió, marcar como completado
-        else:
-            return generar_error_paso_saltado("philosophy_q4_herencia", "philosophy_q5_nivel")
+        resultado = manejar_decision_usuario(
+            "philosophy_q4_herencia", "philosophy_q5_nivel",
+            decision_usuario, justificacion_salto, usuario_verifico
+        )
+        if resultado is not None:
+            return resultado
+        SESSION_STATE["step_4"] = True
 
     language = SESSION_STATE.get("current_language", "godot")
     change_type = SESSION_STATE.get("current_change_type", "nuevo")
@@ -2057,8 +2321,34 @@ COMPORTAMIENTO POR NIVEL:
             nomenclatura_ok = False
             suggested_name = get_suggested_filename(nivel, filename, language)
 
-    # 3. Para código NUEVO: exigir nomenclatura (a menos que usuario decida)
-    if change_type == "nuevo" and not nomenclatura_ok and not decision_usuario:
+    # 3. Para código NUEVO: exigir nomenclatura (a menos que usuario verifique)
+    if change_type == "nuevo" and not nomenclatura_ok and not usuario_verifico:
+        nomenclatura_key = "decision_nomenclatura_q5"
+        if decision_usuario and justificacion_salto:
+            SESSION_STATE["decision_pendiente"][nomenclatura_key] = justificacion_salto
+            return f"""
+╔══════════════════════════════════════════════════════════════════╗
+║  ⚠️ NOMENCLATURA - REQUIERE VERIFICACIÓN DEL USUARIO             ║
+╚══════════════════════════════════════════════════════════════════╝
+
+📄 ARCHIVO: {filename}
+💡 NOMBRE SUGERIDO: {suggested_name}
+
+📝 Tu justificación: "{justificacion_salto}"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🚨 INSTRUCCIÓN OBLIGATORIA:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PASO 1: Presenta al usuario tu justificación y el nombre sugerido
+PASO 2: USA AskUserQuestion:
+   "¿Aceptas usar '{filename}' en vez de '{suggested_name}'?"
+   - "Sí, mantener nombre" → Llama con usuario_verifico=true
+   - "No, usar sugerido" → Usa el nombre sugerido
+
+⛔ La pregunta es el FINAL del turno.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+"""
         return f"""
 ╔══════════════════════════════════════════════════════════════════╗
 ║  ⛔ ERROR: NOMENCLATURA NO VÁLIDA (código nuevo)                 ║
@@ -2211,15 +2501,20 @@ def extraer_propiedades_referencia(content: str, lines: list, must_document: lis
     }
 
 
-async def step6_verificar_dependencias(project_path: str, dependencies: list = None, references: list = None, decision_usuario: bool = False) -> str:
+async def step6_verificar_dependencias(project_path: str, dependencies: list = None, references: list = None,
+                                        decision_usuario: bool = False, justificacion_salto: str = None,
+                                        usuario_verifico: bool = False) -> str:
     """PASO 6: Verificar dependencias externas y referencias antes de escribir código"""
 
     # Verificar paso anterior
     if not SESSION_STATE["step_5"]:
-        if decision_usuario:
-            SESSION_STATE["step_5"] = True  # Usuario decidió, marcar como completado
-        else:
-            return generar_error_paso_saltado("philosophy_q5_nivel", "philosophy_q6_verificar_dependencias")
+        resultado = manejar_decision_usuario(
+            "philosophy_q5_nivel", "philosophy_q6_verificar_dependencias",
+            decision_usuario, justificacion_salto, usuario_verifico
+        )
+        if resultado is not None:
+            return resultado
+        SESSION_STATE["step_5"] = True
 
     path = Path(project_path).expanduser().resolve()
 
@@ -2504,7 +2799,9 @@ Opciones:
     return response
 
 
-async def step8_validate(code: str = None, filename: str = None, file_path: str = None, usuario_confirmo_warnings: bool = False, decision_usuario: bool = False) -> str:
+async def step8_validate(code: str = None, filename: str = None, file_path: str = None,
+                          usuario_confirmo_warnings: bool = False, decision_usuario: bool = False,
+                          justificacion_salto: str = None, usuario_verifico: bool = False) -> str:
     """PASO 8: Validar código escrito"""
 
     # Resolver código desde file_path si no se pasó code
@@ -2526,16 +2823,200 @@ async def step8_validate(code: str = None, filename: str = None, file_path: str 
 
     # Verificar paso anterior (ahora requiere step_6)
     if not SESSION_STATE["step_6"]:
-        if decision_usuario:
-            SESSION_STATE["step_6"] = True  # Usuario decidió, marcar como completado
-        else:
-            return generar_error_paso_saltado("pasos 1-6", "philosophy_validate")
+        resultado = manejar_decision_usuario(
+            "pasos 1-6", "philosophy_validate",
+            decision_usuario, justificacion_salto, usuario_verifico
+        )
+        if resultado is not None:
+            return resultado
+        SESSION_STATE["step_6"] = True
 
     language = SESSION_STATE.get("current_language", "godot")
     issues = []
     warnings = []
 
     lines = code.split('\n')
+
+    # ===============================================================
+    # RAMA ESPECIAL: Archivos .tscn/.tres (escenas Godot)
+    # ===============================================================
+    is_tscn = filename.endswith('.tscn') or filename.endswith('.tres')
+
+    if is_tscn:
+        # 1. DRY: Detectar SubResources duplicados (mismo tipo + propiedades similares)
+        sub_resources = {}
+        current_sub = None
+        current_props = []
+
+        for line in lines:
+            sub_match = re.match(r'\[sub_resource\s+type="(\w+)"\s+id="([^"]+)"\]', line)
+            if sub_match:
+                if current_sub:
+                    sub_resources[current_sub[1]] = {"type": current_sub[0], "props": current_props}
+                current_sub = (sub_match.group(1), sub_match.group(2))
+                current_props = []
+            elif current_sub and '=' in line and not line.startswith('['):
+                current_props.append(line.strip())
+
+        if current_sub:
+            sub_resources[current_sub[1]] = {"type": current_sub[0], "props": current_props}
+
+        # Comparar SubResources del mismo tipo
+        by_type = {}
+        for sub_id, data in sub_resources.items():
+            by_type.setdefault(data["type"], []).append((sub_id, data["props"]))
+
+        for type_name, subs in by_type.items():
+            if len(subs) < 2:
+                continue
+            for i in range(len(subs)):
+                for j in range(i + 1, len(subs)):
+                    props_i = set(subs[i][1])
+                    props_j = set(subs[j][1])
+                    if props_i and props_j and props_i == props_j:
+                        issues.append(
+                            f"❌ DRY: SubResources '{subs[i][0]}' y '{subs[j][0]}' "
+                            f"(tipo {type_name}) son idénticos. Reutiliza uno solo."
+                        )
+                    elif props_i and props_j:
+                        common = props_i & props_j
+                        total = props_i | props_j
+                        if total and len(common) / len(total) > 0.8:
+                            warnings.append(
+                                f"⚠️ DRY: SubResources '{subs[i][0]}' y '{subs[j][0]}' "
+                                f"(tipo {type_name}) tienen >80% propiedades iguales."
+                            )
+
+        # 2. DRY: Detectar estilos/overrides repetidos en nodos
+        node_overrides = {}
+        current_node = None
+
+        for line in lines:
+            node_match = re.match(r'\[node\s+name="([^"]+)"', line)
+            if node_match:
+                current_node = node_match.group(1)
+                node_overrides[current_node] = []
+            elif current_node and line.startswith('theme_override_'):
+                node_overrides[current_node].append(line.strip())
+
+        # Buscar nodos con overrides idénticos
+        override_groups = {}
+        for node_name, overrides in node_overrides.items():
+            if overrides:
+                key = tuple(sorted(overrides))
+                override_groups.setdefault(key, []).append(node_name)
+
+        for key, nodes in override_groups.items():
+            if len(nodes) >= 3:
+                warnings.append(
+                    f"⚠️ DRY: {len(nodes)} nodos ({', '.join(nodes[:3])}...) "
+                    f"tienen los mismos theme_overrides. Considera usar un Theme."
+                )
+
+        # 3. Detectar colores hardcodeados en nodos
+        color_count = 0
+        for line in lines:
+            if re.search(r'Color\s*\(\s*[\d.]+', line) and 'theme_override' not in line:
+                color_count += 1
+        if color_count > 3:
+            warnings.append(f"⚠️ {color_count} colores hardcodeados. Usa AppTheme o un recurso de tema.")
+
+        # 4. Verificar propiedades de referencia (del paso 6)
+        reference_properties = SESSION_STATE.get("reference_properties", [])
+        missing_reference_props = []
+
+        for ref in reference_properties:
+            ref_file = ref.get("file", "")
+            found_props = ref.get("found", {})
+
+            for prop, expected_value in found_props.items():
+                patterns = [
+                    rf'{re.escape(prop)}\s*=\s*',
+                ]
+                prop_found = any(re.search(p, code, re.IGNORECASE) for p in patterns)
+                if not prop_found:
+                    missing_reference_props.append({
+                        "property": prop,
+                        "expected_value": expected_value,
+                        "source_file": ref_file
+                    })
+
+        if missing_reference_props:
+            warnings.append(f"⚠️ Propiedades de referencia no replicadas ({len(missing_reference_props)}):")
+            for mp in missing_reference_props[:5]:
+                warnings.append(f"   • {mp['property']} = {mp['expected_value']} (de {mp['source_file']})")
+
+        # Construir respuesta .tscn
+        response = f"""
+╔══════════════════════════════════════════════════════════════════╗
+║  PASO 8/9: VALIDACIÓN (.tscn)                                     ║
+╚══════════════════════════════════════════════════════════════════╝
+
+📄 ARCHIVO: {filename}
+🔧 TIPO: Escena Godot
+📏 LÍNEAS: {len(lines)}
+📦 SubResources: {len(sub_resources)}
+
+"""
+
+        if issues:
+            response += "❌ PROBLEMAS (bloquean):\n"
+            for issue in issues:
+                response += f"   {issue}\n"
+            response += "\n"
+
+        if warnings:
+            response += "⚠️ ADVERTENCIAS:\n"
+            for warning in warnings:
+                response += f"   {warning}\n"
+            response += "\n"
+
+        if not issues and not warnings:
+            SESSION_STATE["step_8"] = True
+            response += "✅ ESCENA APROBADA\n\n"
+            response += "La escena cumple con DRY y la filosofía modular.\n\n"
+            response += """➡️ PASO 9 (OBLIGATORIO): Usa philosophy_q9_documentar
+
+   "Documentar DESPUÉS de validar"
+
+🚫 El flujo NO está completo hasta documentar.
+"""
+        elif not issues:
+            if usuario_confirmo_warnings:
+                SESSION_STATE["step_8"] = True
+                response += "✅ ESCENA APROBADA (usuario confirmó ignorar advertencias)\n\n"
+                response += """➡️ PASO 9 (OBLIGATORIO): Usa philosophy_q9_documentar
+
+   "Documentar DESPUÉS de validar"
+
+🚫 El flujo NO está completo hasta documentar.
+"""
+            else:
+                response += """⚠️ ESCENA CON ADVERTENCIAS - REQUIERE DECISIÓN DEL USUARIO
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🚨 INSTRUCCIÓN OBLIGATORIA PARA CLAUDE:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PASO 1: EXPLICA tu opinión sobre cada advertencia
+PASO 2: USA AskUserQuestion
+   - "Ignorar y continuar" → philosophy_validate con usuario_confirmo_warnings=true
+   - "Corregir primero" → Modifica y vuelve a validar
+
+⛔ La pregunta es el FINAL del turno.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+"""
+        else:
+            response += """🚫 ESCENA NO APROBADA
+
+Corrige los problemas y vuelve a validar.
+"""
+
+        return response
+
+    # ===============================================================
+    # VALIDACIÓN ESTÁNDAR (código fuente)
+    # ===============================================================
 
     # Detectar code smells por lenguaje
     if language in PHILOSOPHY["code_smells"]:
@@ -2764,16 +3245,21 @@ async def step9_documentar(
     descripcion_cambio: str,
     tipo_cambio: str,
     reemplaza: str = None,
-    decision_usuario: bool = False
+    decision_usuario: bool = False,
+    justificacion_salto: str = None,
+    usuario_verifico: bool = False
 ) -> str:
     """PASO 9: Documenta los cambios realizados"""
 
     # Verificar paso anterior
     if not SESSION_STATE["step_8"]:
-        if decision_usuario:
-            SESSION_STATE["step_8"] = True  # Usuario decidió, marcar como completado
-        else:
-            return generar_error_paso_saltado("philosophy_validate (paso 8)", "philosophy_q9_documentar")
+        resultado = manejar_decision_usuario(
+            "philosophy_validate (paso 8)", "philosophy_q9_documentar",
+            decision_usuario, justificacion_salto, usuario_verifico
+        )
+        if resultado is not None:
+            return resultado
+        SESSION_STATE["step_8"] = True
 
     path = Path(project_path).expanduser().resolve()
     fecha_hoy = datetime.now().strftime("%Y-%m-%d")
@@ -3526,13 +4012,32 @@ Retomar sin criterios claros lleva a ejecutar sin dirección.
     if checkpoint >= 4:
         instruccion_implementacion = """
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🚨 ANÁLISIS COMPLETO - AHORA IMPLEMENTAR CON /filosofia
+⛔ ANÁLISIS COMPLETO - STOP OBLIGATORIO
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-OBLIGATORIO: Para CADA tarea del plan de refactorización:
-   1. USA philosophy_q1_responsabilidad (o /filosofia)
-   2. Sigue el flujo completo de 9 pasos
+🚨 INSTRUCCIÓN OBLIGATORIA:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PASO 1: PRESENTA AL USUARIO el plan de refactorización completo
+   - Lista TODAS las tareas con sus dependencias
+   - Indica el orden de ejecución
+   - Explica los tests de verificación de cada tarea
+
+PASO 2: USA AskUserQuestion para preguntar:
+   "He completado el análisis. ¿Procedo con la implementación?"
+   Opciones:
+   - "Sí, implementar" → Empieza con /filosofia para CADA tarea
+   - "Ajustar plan" → El usuario explicará qué cambiar
+   - "Solo análisis" → Guardar y no implementar
+
+⛔ NO empieces a implementar sin confirmación del usuario.
+⛔ La pregunta es el FINAL del turno.
+
+Para CADA tarea aprobada:
+   1. USA philosophy_q0_criterios (o /filosofia) con q0→q9
+   2. Sigue el flujo completo de 10 pasos
    3. NO escribas código sin pasar por filosofía
+   4. EJECUTA el test de verificación antes de pasar a la siguiente
 
 El análisis arquitectónico identificó QUÉ cambiar.
 La filosofía asegura CÓMO cambiarlo correctamente.
@@ -3679,13 +4184,32 @@ async def architecture_checkpoint(
     if checkpoint >= 4:
         instruccion_implementacion = """
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🚨 ANÁLISIS COMPLETO - AHORA IMPLEMENTAR CON /filosofia
+⛔ ANÁLISIS COMPLETO - STOP OBLIGATORIO
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-OBLIGATORIO: Para CADA tarea del plan de refactorización:
-   1. USA philosophy_q1_responsabilidad (o /filosofia)
-   2. Sigue el flujo completo de 9 pasos
+🚨 INSTRUCCIÓN OBLIGATORIA:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PASO 1: PRESENTA AL USUARIO el plan de refactorización completo
+   - Lista TODAS las tareas con sus dependencias
+   - Indica el orden de ejecución
+   - Explica los tests de verificación de cada tarea
+
+PASO 2: USA AskUserQuestion para preguntar:
+   "He completado el análisis. ¿Procedo con la implementación?"
+   Opciones:
+   - "Sí, implementar" → Empieza con /filosofia para CADA tarea
+   - "Ajustar plan" → El usuario explicará qué cambiar
+   - "Solo análisis" → Guardar y no implementar
+
+⛔ NO empieces a implementar sin confirmación del usuario.
+⛔ La pregunta es el FINAL del turno.
+
+Para CADA tarea aprobada:
+   1. USA philosophy_q0_criterios (o /filosofia) con q0→q9
+   2. Sigue el flujo completo de 10 pasos
    3. NO escribas código sin pasar por filosofía
+   4. EJECUTA el test de verificación antes de pasar a la siguiente
 
 El análisis arquitectónico identificó QUÉ cambiar.
 La filosofía asegura CÓMO cambiarlo correctamente.

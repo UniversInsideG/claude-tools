@@ -1,8 +1,8 @@
-# Actualizador de Philosophy MCP para Windows (v2.3.0)
+# Actualizador de Philosophy MCP para Windows (v2.4.0)
 # Ejecutar como: powershell -ExecutionPolicy Bypass -File update-windows.ps1
 
 Write-Host ""
-Write-Host "=== Actualizador Philosophy MCP v2.3.0 ===" -ForegroundColor Cyan
+Write-Host "=== Actualizador Philosophy MCP v2.4.0 ===" -ForegroundColor Cyan
 Write-Host ""
 
 # Obtener rutas
@@ -242,19 +242,20 @@ if ($claudeProcesses) {
 Write-Host ""
 Write-Host "=== ACTUALIZACION COMPLETADA ===" -ForegroundColor Green
 Write-Host ""
-Write-Host "Novedades v2.3.0:" -ForegroundColor Cyan
+Write-Host "Novedades v2.4.0 (adaptacion Claude 4.6):" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "  NUEVO:" -ForegroundColor White
-Write-Host "    - q0 detecta criterios con implementacion en vez de funcionalidad"
-Write-Host "    - Advertencia: buscas POR QUE falla y olvidas la FUNCIONALIDAD"
-Write-Host "    - Skills /filosofia y /arquitectura advierten NO analizar antes de q0"
+Write-Host "    - decision_usuario requiere 2 pasos (justificacion + verificacion usuario)"
+Write-Host "    - validate soporta archivos .tscn con checks DRY"
+Write-Host "    - q3 usa ripgrep (rg) para busquedas rapidas, fallback a Python"
+Write-Host "    - q0 bloquea criterios de implementacion en segunda llamada"
+Write-Host "    - Checkpoint 4 STOP obligatorio antes de implementar"
 Write-Host ""
-Write-Host "  Incluye v2.2.0:" -ForegroundColor Gray
-Write-Host "    - q6 'references' para analisis exhaustivo de codigo a replicar"
-Write-Host "    - validate verifica propiedades de referencia"
+Write-Host "  Incluye v2.3.0:" -ForegroundColor Gray
+Write-Host "    - q0 detecta criterios sesgados, NO analizar antes de q0"
 Write-Host ""
-Write-Host "  Incluye v2.1.0:" -ForegroundColor Gray
-Write-Host "    - Paso 0 obligatorio, Hook Stop, criterios persistentes"
+Write-Host "  Incluye v2.1-2.2:" -ForegroundColor Gray
+Write-Host "    - Paso 0, criterios persistentes, q6 references, Hook Stop"
 Write-Host ""
 Write-Host "Para verificar:" -ForegroundColor Yellow
 Write-Host "  1. Abre Claude Code"
