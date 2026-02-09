@@ -1,5 +1,16 @@
 # Instrucciones para Claude Code - UniversInside
 
+# ANTES de usar Edit o Write en código: usa philosophy_q0_criterios
+
+Si el MCP `philosophy` está disponible y el usuario pide crear, modificar o corregir código:
+1. NO uses Edit ni Write antes de completar `philosophy_q0_criterios`
+2. Reformula, presenta criterios, espera confirmación
+3. Después sigue el flujo completo (q0 a q9)
+
+Esto aplica a TODO: código nuevo, bug fixes, refactors, modificaciones. Sin excepciones.
+
+---
+
 ## REGLA PRINCIPAL: SEGUIR INSTRUCCIONES DEL MCP
 
 **OBLIGATORIO:** Cuando el MCP `philosophy` te dé una instrucción, DEBES seguirla.

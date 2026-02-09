@@ -29,6 +29,7 @@ server = Server("philosophy")
 
 SESSION_STATE = {
     "step_0": False,  # Q0: Criterios acordados con el usuario
+    "step_0_presented": False,  # Q0: Primera llamada (presentación) completada
     "step_1": False,  # Q1: Responsabilidad
     "step_2": False,  # Q2: Reutilización
     "step_3": False,  # Q3: Buscar similar
@@ -54,6 +55,7 @@ SESSION_STATE = {
 def reset_state():
     """Resetea el estado para una nueva creación"""
     SESSION_STATE["step_0"] = False
+    SESSION_STATE["step_0_presented"] = False
     SESSION_STATE["step_1"] = False
     SESSION_STATE["step_2"] = False
     SESSION_STATE["step_3"] = False
@@ -701,7 +703,11 @@ Requiere: Paso 8 (validate) completado.""",
                     },
                     "descripcion_cambio": {
                         "type": "string",
-                        "description": "Descripción breve del cambio realizado"
+                        "description": "Descripción TÉCNICA del cambio (qué se modificó en el código)"
+                    },
+                    "descripcion_funcional": {
+                        "type": "string",
+                        "description": "Descripción FUNCIONAL del cambio (qué cambia para el usuario). Ejemplo: 'El popup de tiempo ahora aparece siempre al mover jugadores'"
                     },
                     "tipo_cambio": {
                         "type": "string",
@@ -778,6 +784,10 @@ El análisis:
                     "project_name": {
                         "type": "string",
                         "description": "Nombre del proyecto (para el archivo de documentación)"
+                    },
+                    "criterios_file": {
+                        "type": "string",
+                        "description": "Ruta al archivo de criterios a usar (de sesión anterior). Si se proporciona, no requiere q0 previo."
                     }
                 },
                 "required": ["project_path", "language", "project_name"]
@@ -957,7 +967,8 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             arguments.get("reemplaza"),
             arguments.get("decision_usuario", False),
             arguments.get("justificacion_salto"),
-            arguments.get("usuario_verifico", False)
+            arguments.get("usuario_verifico", False),
+            arguments.get("descripcion_funcional")
         )
 
     elif name == "philosophy_checklist":
@@ -968,7 +979,8 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         result = await architecture_analysis(
             arguments["project_path"],
             arguments["language"],
-            arguments["project_name"]
+            arguments["project_name"],
+            arguments.get("criterios_file")
         )
 
     elif name == "philosophy_architecture_resume":
@@ -1092,7 +1104,7 @@ Ejemplo - describe la funcionalidad:
 
 """
 
-        return f"""
+        response = f"""
 ╔══════════════════════════════════════════════════════════════════╗
 ║  PASO 0/9: CRITERIOS - REQUIERE CONFIRMACIÓN DEL USUARIO        ║
 ║  "Entender bien es la forma más rápida de resolver"              ║
@@ -1121,8 +1133,27 @@ PASO 2: USA AskUserQuestion para preguntar:
 ⛔ NO ejecutes q1 ni ninguna otra herramienta en este turno.
 ⛔ La pregunta es el FINAL del turno.
 """
+        # Marcar que la presentación se completó
+        SESSION_STATE["step_0_presented"] = True
+        return response
 
     # Segunda llamada: usuario confirmó
+    # Verificar que la primera llamada se hizo
+    if not SESSION_STATE["step_0_presented"]:
+        return """
+╔══════════════════════════════════════════════════════════════════╗
+║  ⛔ CRITERIOS NO PRESENTADOS AL USUARIO                           ║
+╚══════════════════════════════════════════════════════════════════╝
+
+No puedes usar confirmado_por_usuario=true sin haber presentado
+los criterios primero (confirmado_por_usuario=false).
+
+El usuario debe VER los criterios antes de confirmarlos.
+
+Llama primero con confirmado_por_usuario=false para presentar
+tu reformulación y criterios. DESPUÉS de que el usuario confirme,
+llama con confirmado_por_usuario=true.
+"""
     # Re-verificar criterios de implementación (Claude puede haber ajustado sin limpiar)
     criterios_con_codigo_2 = []
     for i, criterio in enumerate(criterios):
@@ -3247,7 +3278,8 @@ async def step9_documentar(
     reemplaza: str = None,
     decision_usuario: bool = False,
     justificacion_salto: str = None,
-    usuario_verifico: bool = False
+    usuario_verifico: bool = False,
+    descripcion_funcional: str = None
 ) -> str:
     """PASO 9: Documenta los cambios realizados"""
 
@@ -3298,10 +3330,12 @@ async def step9_documentar(
 
     archivos_str = "\n".join([f"   - `{a}`" for a in archivos_modificados])
 
+    funcional = descripcion_funcional or ""
     changelog_template = f"""## [{fecha_hoy}] - {SESSION_STATE.get('current_description', descripcion_cambio)[:50]}
 
 ### {tipo_label}
-- **{descripcion_cambio}**
+- **Funcionalidad:** {funcional if funcional else '⚠️ FALTA - describe qué cambia para el usuario'}
+- **Técnico:** {descripcion_cambio}
 - Archivos:
 {archivos_str}
 """
@@ -3745,7 +3779,8 @@ Si la conversación se ha compactado, sigue estos pasos:
 '''
 
 
-async def architecture_analysis(project_path: str, language: str, project_name: str) -> str:
+async def architecture_analysis(project_path: str, language: str, project_name: str,
+                                 criterios_file_param: str = None) -> str:
     """Inicia el análisis arquitectónico global"""
 
     path = Path(project_path).expanduser().resolve()
@@ -3757,10 +3792,18 @@ async def architecture_analysis(project_path: str, language: str, project_name: 
     claude_dir = path / ".claude"
     claude_dir.mkdir(exist_ok=True)
 
-    # Verificar criterios: primero en sesión (q0 completado), luego en disco
+    # Verificar criterios: sesión actual → parámetro explícito → disco
     if SESSION_STATE["step_0"]:
         # q0 completado en esta sesión — criterios en memoria (y disco)
         criterios_file = SESSION_STATE.get("criterios_file", "sesión actual")
+    elif criterios_file_param:
+        # Claude especificó un archivo de criterios de sesión anterior
+        cf_path = Path(criterios_file_param).expanduser().resolve()
+        if not cf_path.exists():
+            return f"Error: El archivo de criterios {criterios_file_param} no existe"
+        criterios_file = str(cf_path)
+        SESSION_STATE["step_0"] = True
+        SESSION_STATE["criterios_file"] = criterios_file
     else:
         # q0 no se completó en esta sesión — buscar en disco
         criterios_files = sorted(claude_dir.glob("criterios_*.md"), key=lambda f: f.stat().st_mtime, reverse=True)
@@ -3783,7 +3826,7 @@ El análisis sin criterios claros produce resultados que no se pueden evaluar.
 """
 
         # Listar archivos encontrados para que Claude identifique el correcto
-        lista = "\n".join(f"  - {f.name}" for f in criterios_files)
+        lista = "\n".join(f"  - {f.name} → {f}" for f in criterios_files)
         return f"""
 ╔══════════════════════════════════════════════════════════════════╗
 ║  CRITERIOS ENCONTRADOS EN DISCO                                  ║
@@ -3796,8 +3839,8 @@ Para continuar, tienes dos opciones:
 
 1. Si alguno corresponde a esta tarea:
    → Lee el archivo y confirma con el usuario que siguen vigentes
-   → Luego usa philosophy_q0_criterios con project_path="{project_path}"
-     y confirmado_por_usuario=true
+   → Llama de nuevo a philosophy_architecture_analysis con
+     criterios_file="ruta_completa_del_archivo"
 
 2. Si ninguno aplica:
    → Usa philosophy_q0_criterios para acordar nuevos criterios

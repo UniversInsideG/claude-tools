@@ -253,6 +253,7 @@ Write-Host "  - NUEVO: validate soporta archivos .tscn con checks DRY"
 Write-Host "  - NUEVO: q3 usa ripgrep (rg) para busquedas rapidas, fallback a Python"
 Write-Host "  - NUEVO: q0 bloquea criterios de implementacion en segunda llamada"
 Write-Host "  - NUEVO: Checkpoint 4 STOP obligatorio antes de implementar"
+Write-Host "  - FIX: decision_usuario + usuario_verifico juntos resuelve en 1 paso"
 Write-Host ""
 Write-Host "Incluye v2.3.0:" -ForegroundColor Gray
 Write-Host "  - q0 detecta criterios sesgados, skills advierten NO analizar antes de q0"
