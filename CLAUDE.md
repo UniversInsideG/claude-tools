@@ -145,6 +145,9 @@ Claude: [THEN analyzes code guided by agreed criteria]
 - **Validate .tscn (v2.4.0)**: step8_validate has dedicated branch for .tscn/.tres files with DRY checks (duplicate SubResources, repeated theme_overrides, hardcoded colors)
 - **q3 ripgrep (v2.4.0)**: Search uses `rg` subprocess when available, falls back to Python rglob
 - **Checkpoint 4 hard STOP (v2.4.0)**: Architecture checkpoint 4 returns STOP requiring user confirmation via AskUserQuestion before implementation
+- **plan_approved gate (v2.5.0)**: `ARCHITECTURE_STATE["plan_approved"]` blocks q1 when architecture analysis has checkpoint >= 4 but user hasn't approved. Set to False on FASE_4, True on EJECUTANDO. `architecture_resume` infers from saved state. Enforcement in code, not just text instructions.
+- **Checkpoint 4 functional devolución (v2.5.0)**: Instructions rewritten with QUÉ/PARA QUÉ/POR QUÉ format, requiring both functional (what changes for the user) and technical (what code changes) explanation per task before asking for approval
+- **Expanded analysis persistence (v2.5.0)**: Checkpoint 4 instructions tell Claude to save additional analysis with architecture_checkpoint before presenting, so it persists on context compaction
 - **q0 presentation gate (v2.4.0)**: `step_0_presented` blocks `confirmado_por_usuario=true` if criteria weren't presented first with `confirmado_por_usuario=false`
 - **architecture_analysis criterios_file (v2.4.0)**: Accepts optional `criterios_file` parameter to use criteria from a previous session without blocking
 - **q9 descripcion_funcional (v2.4.0)**: New parameter to document what changes for the user (functional), not just the technical change. CHANGELOG template shows both lines.

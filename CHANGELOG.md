@@ -4,6 +4,22 @@ Historial de cambios del MCP de Filosofía de Programación UniversInside.
 
 ---
 
+## [2.5.0] - 2026-02-09
+
+### Añadido
+- **Gate `plan_approved` en ARCHITECTURE_STATE**: Flag que bloquea q1 cuando hay análisis arquitectónico con checkpoint >= 4 pero el usuario no aprobó el plan. Enforcement en código, no solo instrucciones textuales.
+  - Funcionalidad: Claude ya no puede saltarse la presentación de resultados al usuario para ir directamente a implementar. Está obligado a presentar devolución completa y obtener aprobación.
+  - Técnico: `plan_approved` se gestiona en `architecture_checkpoint` (FASE_4→false, EJECUTANDO→true) y en `architecture_resume` (infiere del estado guardado). `step1_responsabilidad` bloquea si flag es false.
+- **Instrucciones checkpoint 4 con QUÉ/PARA QUÉ/POR QUÉ**: Reescritas las instrucciones de checkpoint 4 (en `architecture_checkpoint` y `architecture_resume`) exigiendo devolución funcional + técnica por cada tarea del plan.
+  - Funcionalidad: El usuario recibe explicación de qué cambia para él (funcional) además de qué se modifica en el código (técnico), para poder tomar decisiones informadas.
+  - Técnico: Las instrucciones explican QUÉ hacer (presentar devolución), PARA QUÉ (que el usuario pueda decidir), POR QUÉ (Claude 4.6 tiende a saltar a implementar sin presentar).
+- **Instrucciones para guardar análisis ampliado**: Si el usuario pide más análisis después del checkpoint 4, las instrucciones indican guardarlo con `architecture_checkpoint` antes de presentar, para que persista si se compacta la conversación.
+
+### Motivo
+Claude 4.6 terminaba el análisis arquitectónico, no presentaba devolución funcional al usuario, y se ponía a implementar directamente. El usuario se quedaba sin información para tomar decisiones. El análisis ampliado que se hacía después del plan no se guardaba y se perdía al compactarse la conversación.
+
+---
+
 ## [2.4.0] - 2026-02-07
 
 ### Añadido

@@ -1,8 +1,8 @@
-# Instalador de Philosophy MCP para Windows (v2.4.0)
+# Instalador de Philosophy MCP para Windows (v2.5.0)
 # Ejecutar como: powershell -ExecutionPolicy Bypass -File install-windows.ps1
 
 Write-Host ""
-Write-Host "=== Instalador Philosophy MCP v2.4.0 ===" -ForegroundColor Cyan
+Write-Host "=== Instalador Philosophy MCP v2.5.0 ===" -ForegroundColor Cyan
 Write-Host ""
 
 # Verificar Python
@@ -247,23 +247,18 @@ Write-Host "  - Hook: planning_reminder.py (filosofia de codigo)"
 Write-Host "  - Hook Stop: detecta pregunta + ejecucion en el mismo turno"
 Write-Host "  - Hooks configurados en 4 eventos: Stop, UserPromptSubmit, PreToolUse, PostToolUse"
 Write-Host ""
-Write-Host "Novedades v2.4.0 (adaptacion Claude 4.6):" -ForegroundColor Cyan
-Write-Host "  - NUEVO: decision_usuario requiere 2 pasos (justificacion + verificacion usuario)"
-Write-Host "  - NUEVO: validate soporta archivos .tscn con checks DRY"
-Write-Host "  - NUEVO: q3 usa ripgrep (rg) para busquedas rapidas, fallback a Python"
-Write-Host "  - NUEVO: q0 bloquea criterios de implementacion en segunda llamada"
-Write-Host "  - NUEVO: Checkpoint 4 STOP obligatorio antes de implementar"
-Write-Host "  - FIX: decision_usuario + usuario_verifico juntos resuelve en 1 paso"
-Write-Host "  - FIX: q0 bloquea confirmado=true si no se presentaron criterios primero"
-Write-Host "  - FIX: architecture_analysis acepta criterios_file de sesion anterior"
-Write-Host "  - NUEVO: q9 pide descripcion funcional ademas de tecnica"
-Write-Host "  - NUEVO: CLAUDE.md con regla MCP al inicio del archivo"
+Write-Host "Novedades v2.5.0 (gate plan_approved + devolucion funcional):" -ForegroundColor Cyan
+Write-Host "  - NUEVO: plan_approved bloquea q1 hasta que el usuario apruebe el plan del analisis"
+Write-Host "  - NUEVO: Checkpoint 4 exige devolucion funcional + tecnica con checklist de reconexion"
+Write-Host "  - NUEVO: Instrucciones con formato QUE/PARA QUE/POR QUE en checkpoint 4 y resume"
+Write-Host "  - NUEVO: architecture_resume infiere plan_approved del estado guardado"
+Write-Host "  - NUEVO: CLAUDE.md con regla 'Analizar = /arquitectura' y comunicacion funcional"
 Write-Host ""
-Write-Host "Incluye v2.3.0:" -ForegroundColor Gray
-Write-Host "  - q0 detecta criterios sesgados, skills advierten NO analizar antes de q0"
+Write-Host "Incluye v2.4.0:" -ForegroundColor Gray
+Write-Host "  - decision_usuario 2 pasos, validate .tscn, q3 ripgrep, q0 gate criterios"
 Write-Host ""
-Write-Host "Incluye v2.1-2.2:" -ForegroundColor Gray
-Write-Host "  - Paso 0, criterios persistentes, q6 references, Hook Stop"
+Write-Host "Incluye v2.1-2.3:" -ForegroundColor Gray
+Write-Host "  - Paso 0, criterios persistentes, q6 references, deteccion criterios sesgados"
 Write-Host ""
 Write-Host "Proximos pasos:" -ForegroundColor Yellow
 Write-Host "  1. Reinicia Claude Code"

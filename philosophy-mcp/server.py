@@ -87,6 +87,7 @@ ARCHITECTURE_STATE = {
     "phase": None,  # FASE_0, FASE_1, FASE_2, FASE_3, FASE_4, EJECUTANDO
     "project_path": None,
     "language": None,
+    "plan_approved": False,  # v2.5.0: Gate para bloquear q1 hasta que el usuario apruebe el plan
 }
 
 def reset_architecture_state():
@@ -97,6 +98,7 @@ def reset_architecture_state():
     ARCHITECTURE_STATE["phase"] = None
     ARCHITECTURE_STATE["project_path"] = None
     ARCHITECTURE_STATE["language"] = None
+    ARCHITECTURE_STATE["plan_approved"] = False
 
 
 def generar_error_paso_saltado(paso_faltante: str, paso_actual: str) -> str:
@@ -1124,6 +1126,14 @@ Ejemplo - describe la funcionalidad:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 PASO 1: Presenta al usuario tu reformulación y criterios (el texto de arriba)
+
+   ⚠️ COMUNICACIÓN: Usa lenguaje FUNCIONAL, no nombres de funciones.
+   El usuario necesita verificar que entendiste bien, y solo puede
+   hacerlo si hablas de lo que PASA, no de cómo se LLAMA en el código.
+   Ejemplo MAL: "show_view_grid() llama a _deferred_relayout()"
+   Ejemplo BIEN: "al abrir capturas se oculta el mapa pero se le
+   pide que se redibuje, lo que causa un bucle"
+
 PASO 2: USA AskUserQuestion para preguntar:
    "¿Son correctos estos criterios?"
    Opciones:
@@ -1228,6 +1238,52 @@ async def step1_responsabilidad(description: str, responsabilidad: str, language
     # Verificar paso 0
     if not SESSION_STATE["step_0"]:
         return generar_error_paso_saltado("philosophy_q0_criterios", "philosophy_q1_responsabilidad")
+
+    # v2.5.0: Gate — bloquear implementación si hay análisis arquitectónico con plan no aprobado
+    # QUÉ: Impide que q1 arranque si el plan del análisis arquitectónico no fue aprobado por el usuario.
+    # PARA QUÉ: Para que el usuario reciba la devolución completa (técnica + funcional) y pueda decidir.
+    # POR QUÉ: Sin este bloqueo, Claude 4.6 salta directamente a implementar después del checkpoint 4
+    #           sin presentar conclusiones al usuario, que se queda sin información para tomar decisiones.
+    if (ARCHITECTURE_STATE["active"]
+            and ARCHITECTURE_STATE["checkpoint"] >= 4
+            and not ARCHITECTURE_STATE["plan_approved"]):
+        return """
+╔══════════════════════════════════════════════════════════════════╗
+║  ⛔ IMPLEMENTACIÓN BLOQUEADA — PLAN NO APROBADO                  ║
+╚══════════════════════════════════════════════════════════════════╝
+
+El análisis arquitectónico tiene un plan completo (checkpoint 4)
+pero el usuario NO ha aprobado la implementación.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+QUÉ debes hacer:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. ANTES DE PRESENTAR — reconecta con los criterios:
+   □ Lee los criterios acordados en q0 (.claude/criterios_*)
+   □ ¿Cubres TODOS los criterios o solo los que coinciden
+     con la solución técnica que encontraste?
+   □ ¿El usuario puede verificar lo que dices sin leer código?
+   □ ¿Cubres todas las situaciones que mencionó el usuario?
+
+2. PRESENTA AL USUARIO la devolución del análisis:
+   - Explicación FUNCIONAL: qué cambia para el usuario/jugador
+   - Explicación TÉCNICA: qué archivos se modifican y por qué
+   - Cada tarea con ambas explicaciones
+
+3. USA AskUserQuestion para obtener aprobación explícita
+
+4. Guarda la aprobación con architecture_checkpoint:
+   phase="EJECUTANDO" para desbloquear la implementación
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PARA QUÉ: El usuario necesita la información completa para decidir.
+POR QUÉ: Sin devolución funcional, el usuario no puede evaluar si
+         el plan resuelve su problema o si falta algo.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⛔ NO puedes usar q1 hasta que el plan sea aprobado.
+"""
 
     # Guardar en estado
     SESSION_STATE["current_description"] = description
@@ -4045,45 +4101,80 @@ Retomar sin criterios claros lleva a ejecutar sin dirección.
     ARCHITECTURE_STATE["phase"] = estado
     ARCHITECTURE_STATE["project_path"] = scope
     ARCHITECTURE_STATE["language"] = language
+    # v2.5.0: Si retomamos con EJECUTANDO, el plan ya fue aprobado.
+    # Si retomamos con FASE_4 y checkpoint >= 4, aún no fue aprobado.
+    ARCHITECTURE_STATE["plan_approved"] = (estado == "EJECUTANDO")
 
     # Extraer título del proyecto
     title_match = re.search(r'^# Análisis Arquitectónico:\s*(.+)$', content, re.MULTILINE)
     project_name = title_match.group(1) if title_match else "Proyecto"
 
-    # Instrucción especial cuando análisis está completo (checkpoint >= 4)
+    # Instrucción especial cuando análisis está completo pero NO aprobado
     instruccion_implementacion = ""
-    if checkpoint >= 4:
+    if checkpoint >= 4 and not ARCHITECTURE_STATE["plan_approved"]:
         instruccion_implementacion = """
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-⛔ ANÁLISIS COMPLETO - STOP OBLIGATORIO
+⛔ ANÁLISIS COMPLETO — DEVOLUCIÓN OBLIGATORIA ANTES DE IMPLEMENTAR
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🚨 INSTRUCCIÓN OBLIGATORIA:
+QUÉ debes hacer:
+   Presentar al usuario una DEVOLUCIÓN COMPLETA del análisis.
+
+ANTES DE PRESENTAR — reconecta con los criterios:
+   □ Lee los criterios que se acordaron en q0 (archivo .claude/criterios_*)
+   □ ¿Tu explicación responde a TODOS los criterios, o solo a los
+     que coinciden con la solución técnica que encontraste?
+   □ ¿El usuario puede verificar lo que dices sin leer el código?
+     Si usas un nombre de función, explica QUÉ HACE en el juego.
+   □ ¿Cubres todas las situaciones que el usuario mencionó, o te
+     centraste en una y olvidaste el resto?
+
+   La devolución tiene dos partes obligatorias por cada tarea:
+
+   A) EXPLICACIÓN FUNCIONAL — qué cambia para el usuario/jugador:
+      - Qué pasa hoy (el problema que vive el usuario)
+      - Qué cambiará (cómo lo vivirá después del fix)
+      - Qué notará el usuario (cambio visible o invisible)
+
+   B) EXPLICACIÓN TÉCNICA — qué se modifica en el código:
+      - Archivos afectados
+      - Tipo de cambio (guard, refactor, nuevo componente)
+      - Dependencias entre tareas
+
+PARA QUÉ:
+   Para que el usuario pueda tomar decisiones informadas.
+   Sin la explicación funcional, el usuario no sabe si el plan
+   resuelve su problema real o si falta cubrir alguna casuística.
+
+POR QUÉ:
+   Claude 4.6 tiende a presentar solo la parte técnica y saltar
+   directamente a implementar. El usuario se queda sin información
+   para decidir, y si falta algo lo descubre después del cambio.
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-PASO 1: PRESENTA AL USUARIO el plan de refactorización completo
-   - Lista TODAS las tareas con sus dependencias
-   - Indica el orden de ejecución
-   - Explica los tests de verificación de cada tarea
+DESPUÉS de presentar la devolución:
 
-PASO 2: USA AskUserQuestion para preguntar:
-   "He completado el análisis. ¿Procedo con la implementación?"
+1. USA AskUserQuestion para obtener aprobación:
+   "¿Apruebas el plan? ¿Falta alguna casuística?"
    Opciones:
-   - "Sí, implementar" → Empieza con /filosofia para CADA tarea
-   - "Ajustar plan" → El usuario explicará qué cambiar
-   - "Solo análisis" → Guardar y no implementar
+   - "Sí, implementar"
+   - "Ajustar plan" → el usuario explica qué cambiar
+   - "Solo análisis" → guardar sin implementar
 
-⛔ NO empieces a implementar sin confirmación del usuario.
-⛔ La pregunta es el FINAL del turno.
+2. Si el usuario pide más análisis:
+   - Hazlo Y guárdalo con architecture_checkpoint (mismo checkpoint 4)
+   - Para que persista si se compacta la conversación
 
-Para CADA tarea aprobada:
-   1. USA philosophy_q0_criterios (o /filosofia) con q0→q9
-   2. Sigue el flujo completo de 10 pasos
-   3. NO escribas código sin pasar por filosofía
-   4. EJECUTA el test de verificación antes de pasar a la siguiente
+3. Cuando el usuario apruebe, guarda con:
+   architecture_checkpoint(phase="EJECUTANDO", data=<plan aprobado completo>)
+   Esto desbloquea q1 para la implementación.
 
-El análisis arquitectónico identificó QUÉ cambiar.
-La filosofía asegura CÓMO cambiarlo correctamente.
+4. Para CADA tarea aprobada: usa philosophy_q0_criterios (q0→q9)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⛔ q1 ESTÁ BLOQUEADO hasta que guardes con phase="EJECUTANDO".
+⛔ La devolución al usuario es el FINAL del turno.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
 
@@ -4222,40 +4313,80 @@ async def architecture_checkpoint(
     ARCHITECTURE_STATE["checkpoint"] = checkpoint
     ARCHITECTURE_STATE["phase"] = phase
 
+    # v2.5.0: Gestión del gate plan_approved
+    # Checkpoint 4 con FASE_4 → plan pendiente de aprobación
+    # Checkpoint con EJECUTANDO → plan aprobado por el usuario
+    if checkpoint >= 4 and phase == "FASE_4":
+        ARCHITECTURE_STATE["plan_approved"] = False
+    elif phase == "EJECUTANDO":
+        ARCHITECTURE_STATE["plan_approved"] = True
+
     # Instrucción especial cuando checkpoint 4 está completo
     instruccion_implementacion = ""
-    if checkpoint >= 4:
+    if checkpoint >= 4 and not ARCHITECTURE_STATE["plan_approved"]:
         instruccion_implementacion = """
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-⛔ ANÁLISIS COMPLETO - STOP OBLIGATORIO
+⛔ ANÁLISIS COMPLETO — DEVOLUCIÓN OBLIGATORIA ANTES DE IMPLEMENTAR
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🚨 INSTRUCCIÓN OBLIGATORIA:
+QUÉ debes hacer:
+   Presentar al usuario una DEVOLUCIÓN COMPLETA del análisis.
+
+ANTES DE PRESENTAR — reconecta con los criterios:
+   □ Lee los criterios que se acordaron en q0 (archivo .claude/criterios_*)
+   □ ¿Tu explicación responde a TODOS los criterios, o solo a los
+     que coinciden con la solución técnica que encontraste?
+   □ ¿El usuario puede verificar lo que dices sin leer el código?
+     Si usas un nombre de función, explica QUÉ HACE en el juego.
+   □ ¿Cubres todas las situaciones que el usuario mencionó, o te
+     centraste en una y olvidaste el resto?
+
+   La devolución tiene dos partes obligatorias por cada tarea:
+
+   A) EXPLICACIÓN FUNCIONAL — qué cambia para el usuario/jugador:
+      - Qué pasa hoy (el problema que vive el usuario)
+      - Qué cambiará (cómo lo vivirá después del fix)
+      - Qué notará el usuario (cambio visible o invisible)
+
+   B) EXPLICACIÓN TÉCNICA — qué se modifica en el código:
+      - Archivos afectados
+      - Tipo de cambio (guard, refactor, nuevo componente)
+      - Dependencias entre tareas
+
+PARA QUÉ:
+   Para que el usuario pueda tomar decisiones informadas.
+   Sin la explicación funcional, el usuario no sabe si el plan
+   resuelve su problema real o si falta cubrir alguna casuística.
+
+POR QUÉ:
+   Claude 4.6 tiende a presentar solo la parte técnica y saltar
+   directamente a implementar. El usuario se queda sin información
+   para decidir, y si falta algo lo descubre después del cambio.
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-PASO 1: PRESENTA AL USUARIO el plan de refactorización completo
-   - Lista TODAS las tareas con sus dependencias
-   - Indica el orden de ejecución
-   - Explica los tests de verificación de cada tarea
+DESPUÉS de presentar la devolución:
 
-PASO 2: USA AskUserQuestion para preguntar:
-   "He completado el análisis. ¿Procedo con la implementación?"
+1. USA AskUserQuestion para obtener aprobación:
+   "¿Apruebas el plan? ¿Falta alguna casuística?"
    Opciones:
-   - "Sí, implementar" → Empieza con /filosofia para CADA tarea
-   - "Ajustar plan" → El usuario explicará qué cambiar
-   - "Solo análisis" → Guardar y no implementar
+   - "Sí, implementar"
+   - "Ajustar plan" → el usuario explica qué cambiar
+   - "Solo análisis" → guardar sin implementar
 
-⛔ NO empieces a implementar sin confirmación del usuario.
-⛔ La pregunta es el FINAL del turno.
+2. Si el usuario pide más análisis:
+   - Hazlo Y guárdalo con architecture_checkpoint (mismo checkpoint 4)
+   - Para que persista si se compacta la conversación
 
-Para CADA tarea aprobada:
-   1. USA philosophy_q0_criterios (o /filosofia) con q0→q9
-   2. Sigue el flujo completo de 10 pasos
-   3. NO escribas código sin pasar por filosofía
-   4. EJECUTA el test de verificación antes de pasar a la siguiente
+3. Cuando el usuario apruebe, guarda con:
+   architecture_checkpoint(phase="EJECUTANDO", data=<plan aprobado completo>)
+   Esto desbloquea q1 para la implementación.
 
-El análisis arquitectónico identificó QUÉ cambiar.
-La filosofía asegura CÓMO cambiarlo correctamente.
+4. Para CADA tarea aprobada: usa philosophy_q0_criterios (q0→q9)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⛔ q1 ESTÁ BLOQUEADO hasta que guardes con phase="EJECUTANDO".
+⛔ La devolución al usuario es el FINAL del turno.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
 
