@@ -1,19 +1,39 @@
 # Claude Tools - UniversInside
 
-Colección de herramientas, configuraciones y comandos personalizados para Claude Code.
+Colección de herramientas MCP para Claude Code que imponen filosofía de programación modular.
 
-## Herramientas disponibles
+## MCP Servers disponibles
 
-| Herramienta | Descripción | Comando |
-|-------------|-------------|---------|
-| **Filosofía de Programación** | Arquitectura modular, validación automática, hooks | `/filosofia` |
+| MCP Server | Stack | Arquitectura | Comando |
+|------------|-------|-------------|---------|
+| **philosophy** | Godot (GDScript, .tscn) + Python | Pieza → Componente → Contenedor → Pantalla → Estructura | `/filosofia` |
+| **web-philosophy** | HTML, CSS, JS vanilla | Atom → Molecule → Organism → Template → Page (Atomic Design) | `/filosofia` |
 
-## Instalación rápida
+Ambos servidores comparten el mismo flujo de 10 pasos obligatorios (q0-q9) y las mismas protecciones (decision_usuario dos pasos, plan_approved gate, criterios persistentes).
+
+## Instalación
+
+### philosophy (Godot/Python)
 
 ```bash
-git clone https://github.com/UniversInsideG/claude-tools
-cd claude-tools/filosofia
-./install.sh
+cd philosophy-mcp
+pip install -r requirements.txt
+claude mcp add philosophy -- python3 $(pwd)/server.py
+```
+
+### web-philosophy (HTML/CSS/JS)
+
+```bash
+cd web-philosophy-mcp
+pip install -r requirements.txt
+claude mcp add web-philosophy -- python3 $(pwd)/server.py
+```
+
+### Verificar instalación
+
+```bash
+# En Claude Code
+/mcp  # Debe mostrar "philosophy" y/o "web-philosophy"
 ```
 
 ## Estructura del repositorio
@@ -21,68 +41,65 @@ cd claude-tools/filosofia
 ```
 claude-tools/
 ├── README.md
-└── filosofia/                       # Filosofía de programación modular
-    ├── CLAUDE.md                    # Instrucciones automáticas
-    ├── CODING_PHILOSOPHY.md         # Documentación completa
+├── CHANGELOG.md
+├── CLAUDE.md
+│
+├── philosophy-mcp/               # MCP Server para Godot/Python
+│   ├── server.py                 # Servidor MCP (~4600 líneas)
+│   ├── requirements.txt
+│   ├── INSTALAR.bat              # Instalador Windows
+│   ├── ACTUALIZAR.bat            # Actualizador Windows
+│   └── docs/                     # Documentos de diseño
+│
+├── web-philosophy-mcp/           # MCP Server para Web (HTML/CSS/JS)
+│   ├── server.py                 # Servidor MCP (~4600 líneas)
+│   └── requirements.txt
+│
+└── filosofia/                    # Configuración para usuarios
+    ├── CLAUDE.md                 # Instrucciones para proyectos
+    ├── CODING_PHILOSOPHY.md      # Documentación de la filosofía
     ├── commands/
-    │   └── filosofia.md             # Comando /filosofia
-    ├── hooks/
-    │   ├── planning_reminder.py     # Hook: recordatorio antes de planificar
-    │   └── validate_philosophy.py   # Hook: validación antes de escribir
-    └── install.sh                   # Instalador
+    │   ├── filosofia.md          # Comando /filosofia (flujo de 10 pasos)
+    │   └── arquitectura.md       # Comando /arquitectura (análisis global)
+    └── hooks/                    # Hooks legacy (deprecado, MCP preferido)
 ```
 
-## Sistema de Validación
-
-El sistema funciona en **dos capas**:
+## Flujo de 10 pasos (ambos servidores)
 
 ```
-USUARIO PIDE CÓDIGO
-        ↓
-┌─────────────────────────────────────────────┐
-│  CAPA 1: PLANIFICACIÓN                      │
-│  Hook: planning_reminder.py                 │
-│                                             │
-│  → Detecta si vas a pedir código            │
-│  → Recuerda la filosofía a Claude           │
-│  → Claude DEBE explicar su razonamiento     │
-└─────────────────────────────────────────────┘
-        ↓
-┌─────────────────────────────────────────────┐
-│  CAPA 2: VALIDACIÓN                         │
-│  Hook: validate_philosophy.py               │
-│                                             │
-│  → Intercepta: Edit, Write, MCP Godot       │
-│  → Valida: DRY, SOLID, nomenclatura         │
-│  → Muestra advertencias si no cumple        │
-└─────────────────────────────────────────────┘
+0. q0_criterios        → Definir criterios con el usuario (BLOQUEA q1)
+1. q1_responsabilidad  → ¿Hace UNA sola cosa?
+2. q2_reutilizacion    → ¿Puedo reutilizar?
+3. q3_buscar           → ¿Existe algo similar?
+4. q4_herencia         → ¿Se actualizan las instancias?
+5. q5_nivel            → ¿Nivel correcto?
+6. q6_verificar_deps   → ¿Las dependencias existen?
+7. (Escribir código)
+8. validate            → Validar el resultado
+9. q9_documentar       → Documentar cambios
 ```
 
-## Qué valida
+## Qué valida cada servidor
+
+### philosophy (Godot/Python)
 
 | Criterio | Qué detecta |
 |----------|-------------|
-| **Single Responsibility** | Muchas clases por archivo, funciones largas |
-| **DRY** | Código repetido, patrones copy-paste |
-| **Nomenclatura** | `*_component.gd`, `*_system.gd` |
-| **Jerarquía** | Pieza → Componente → Contenedor → Estructura |
-| **Godot** | Signals vs llamadas directas |
-| **Python** | Herencia de clases base |
+| **Nomenclatura** | `*_piece.gd`, `*_component.gd`, `*_system.gd`, `*_screen.gd` |
+| **Jerarquía** | Pieza → Componente → Contenedor → Pantalla → Estructura |
+| **Godot** | Signals vs llamadas directas, .tscn DRY (SubResources, overrides) |
+| **DRY** | Duplicación real (>60% similitud entre archivos) |
 
-## Comandos disponibles
+### web-philosophy (HTML/CSS/JS)
 
-```bash
-/filosofia           # Ver resumen de principios
-/filosofia check     # Checklist antes de programar
-/filosofia revisar archivo.gd  # Analizar un archivo
-/filosofia doc       # Documentación completa
-```
-
-## Compatibilidad
-
-- **MCP Godot**: Compatible con `gdai-mcp-plugin-godot`
-- **Lenguajes**: GDScript, Python, PHP, JavaScript, HTML/CSS
-- **Plataformas**: macOS, Linux, Windows (con bash)
+| Criterio | Qué detecta |
+|----------|-------------|
+| **Nomenclatura** | `atoms/`, `molecules/`, `organisms/`, `templates/`, `pages/` |
+| **Jerarquía** | Atom → Molecule → Organism → Template → Page |
+| **CSS** | Colores hardcodeados, `!important`, selectores profundos (>3 niveles), bloques duplicados |
+| **HTML** | Estilos inline, div soup, imágenes sin alt, estructuras repetidas |
+| **JS** | `var` en lugar de `const/let`, queries DOM sin cachear |
+| **DRY visual** | Componentes visuales que deberían ser el mismo pero difieren |
 
 ## Principio Central
 

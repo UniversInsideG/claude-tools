@@ -4,6 +4,34 @@ Historial de cambios del MCP de Filosofía de Programación UniversInside.
 
 ---
 
+## [Web 1.0.0] - 2026-02-13
+
+### Añadido
+- **Nuevo MCP Server `web-philosophy`**: Servidor independiente que aplica la misma filosofía de programación modular pero adaptado a desarrollo web (HTML, CSS, JS vanilla).
+  - Funcionalidad: Los proyectos web tienen ahora el mismo nivel de validación arquitectónica que los proyectos Godot. Claude sigue los 10 pasos obligatorios (q0-q9) verificando que el código web cumpla Atomic Design, DRY visual, semántica HTML y buenas prácticas CSS/JS.
+  - Técnico: Servidor Python independiente en `web-philosophy-mcp/server.py` (~4600 líneas). Misma infraestructura que `philosophy-mcp` (SESSION_STATE, ARCHITECTURE_STATE, decision_usuario dos pasos, plan_approved gate) con todas las validaciones adaptadas a web.
+
+- **Arquitectura Atomic Design (5 niveles)**:
+  - Atom → `atoms/` — Elemento básico indivisible (botón, input, label)
+  - Molecule → `molecules/` — Combina átomos en grupo funcional (campo de formulario)
+  - Organism → `organisms/` — Sección compleja, combina moléculas (header, formulario completo)
+  - Template → `templates/` — Layout de página, distribución de organismos
+  - Page → `pages/` — Instancia concreta de un template con datos reales
+
+- **Validación CSS**: Colores hardcodeados sin variables CSS, `!important`, selectores con más de 3 niveles de anidación, bloques CSS duplicados
+- **Validación HTML**: Estilos inline, div soup (5+ divs sin semántica), imágenes sin alt, DRY visual (estructuras HTML repetidas)
+- **Validación JS**: Uso de `var` en lugar de `const/let`, queries DOM repetidas sin cachear
+- **Detección de duplicación web**: Estilos inline repetidos, colores hardcodeados, `!important`, queries DOM duplicadas, estructuras HTML similares
+- **Búsqueda adaptada**: Extensiones `.html`, `.css`, `.js` con exclusión de `node_modules/`, `dist/`, `build/`
+- **Detección de funciones JS**: Declaraciones `function`, arrow functions, y `export` functions
+- **Instalación independiente**: `claude mcp add web-philosophy -- python3 $(pwd)/server.py`
+
+### Archivos creados
+- `web-philosophy-mcp/server.py` — Servidor MCP completo adaptado a web
+- `web-philosophy-mcp/requirements.txt` — Dependencia: `mcp`
+
+---
+
 ## [2.5.0] - 2026-02-09
 
 ### Añadido

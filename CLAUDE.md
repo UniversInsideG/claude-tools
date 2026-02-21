@@ -4,14 +4,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This repository (`claude-tools`) contains the **Philosophy MCP Server** - a Model Context Protocol server that enforces modular programming philosophy in Claude Code. The main component is the Python MCP server in `philosophy-mcp/`.
+This repository (`claude-tools`) contains **two MCP Servers** that enforce modular programming philosophy in Claude Code:
+
+- **philosophy** (`philosophy-mcp/`) — For Godot (GDScript, .tscn) and Python projects. 5-level architecture: Pieza → Componente → Contenedor → Pantalla → Estructura.
+- **web-philosophy** (`web-philosophy-mcp/`) — For web projects (HTML, CSS, JS vanilla). Atomic Design: Atom → Molecule → Organism → Template → Page.
+
+Both share the same 10-step flow (q0-q9), session/architecture state management, and enforcement mechanisms.
 
 ## Commands
 
 ### Development
 ```bash
-# Run MCP server directly (for testing)
-python3 philosophy-mcp/server.py
+# Run MCP servers directly (for testing)
+python3 philosophy-mcp/server.py      # Godot/Python server
+python3 web-philosophy-mcp/server.py  # Web server
 
 # Install MCP dependencies
 pip install mcp
@@ -19,10 +25,15 @@ pip install mcp
 
 ### Installation (for end users)
 ```bash
-# macOS/Linux
+# philosophy (Godot/Python) - macOS/Linux
 cd philosophy-mcp
 pip install -r requirements.txt
 claude mcp add philosophy -- python3 $(pwd)/server.py
+
+# web-philosophy (HTML/CSS/JS) - macOS/Linux
+cd web-philosophy-mcp
+pip install -r requirements.txt
+claude mcp add web-philosophy -- python3 $(pwd)/server.py
 
 # Windows - use INSTALAR.bat in philosophy-mcp/
 ```
@@ -30,30 +41,35 @@ claude mcp add philosophy -- python3 $(pwd)/server.py
 ### Verify installation
 ```bash
 # In Claude Code
-/mcp  # Should show "philosophy" in the list
+/mcp  # Should show "philosophy" and/or "web-philosophy"
 ```
 
 ## Architecture
 
 ```
 claude-tools/
-├── philosophy-mcp/           # Main MCP server
-│   ├── server.py             # MCP server implementation (all tools)
-│   ├── INSTALAR.bat          # Windows installer
-│   ├── ACTUALIZAR.bat        # Windows updater
-│   └── docs/                 # Design documents
+├── philosophy-mcp/               # MCP Server: Godot/Python
+│   ├── server.py                 # Server implementation (all tools)
+│   ├── requirements.txt
+│   ├── INSTALAR.bat              # Windows installer
+│   ├── ACTUALIZAR.bat            # Windows updater
+│   └── docs/                     # Design documents
 │
-└── filosofia/                # User-facing configuration
+├── web-philosophy-mcp/           # MCP Server: Web (HTML/CSS/JS)
+│   ├── server.py                 # Server implementation (all tools)
+│   └── requirements.txt
+│
+└── filosofia/                    # User-facing configuration
     ├── commands/
-    │   ├── filosofia.md      # /filosofia command (10-step flow)
-    │   └── arquitectura.md   # /arquitectura command (refactoring analysis)
-    ├── hooks/                # Legacy hooks (deprecated, MCP preferred)
-    └── CLAUDE.md             # Instructions for end-user projects
+    │   ├── filosofia.md          # /filosofia command (10-step flow)
+    │   └── arquitectura.md       # /arquitectura command (refactoring analysis)
+    ├── hooks/                    # Legacy hooks (deprecated, MCP preferred)
+    └── CLAUDE.md                 # Instructions for end-user projects
 ```
 
-### MCP Server (`philosophy-mcp/server.py`)
+### MCP Server: philosophy (`philosophy-mcp/server.py`)
 
-Single-file Python server implementing all MCP tools:
+Single-file Python server for **Godot/Python** projects:
 
 **Core Flow Tools (10 steps):**
 0. `philosophy_q0_criterios` - Define criteria with user BEFORE designing (blocks q1)
@@ -82,6 +98,22 @@ Single-file Python server implementing all MCP tools:
 - `philosophy_architecture_resume` - Resume after compaction
 - `philosophy_architecture_checkpoint` - Save progress
 
+### MCP Server: web-philosophy (`web-philosophy-mcp/server.py`)
+
+Single-file Python server for **web** projects (HTML, CSS, JS vanilla). Same 10-step flow and infrastructure as philosophy-mcp, with all validations adapted to web.
+
+**Key differences from philosophy-mcp:**
+- **Architecture**: Atomic Design — Atom → Molecule → Organism → Template → Page
+- **Naming**: Folder-based (`atoms/`, `molecules/`, `organisms/`, `templates/`, `pages/`)
+- **File extensions**: `.html`, `.css`, `.js` (excludes `node_modules/`, `dist/`, `build/`)
+- **CSS validation**: Hardcoded colors (without CSS variables), `!important`, deep selectors (>3 levels), duplicate CSS blocks
+- **HTML validation**: Inline styles, div soup (5+ non-semantic divs), missing `alt` attributes, duplicate visual structures
+- **JS validation**: `var` instead of `const/let`, repeated uncached DOM queries
+- **Duplication detection**: Web-specific patterns (inline styles, hardcoded colors, repeated DOM queries, similar HTML structures)
+- **Function detection**: JS `function` declarations, arrow functions, `export` functions
+
+**Same tools, same names** (prefixed `philosophy_`), same session state management. Only the technology-specific checks differ.
+
 ### Session State
 
 The server maintains two state dictionaries:
@@ -91,14 +123,24 @@ The server maintains two state dictionaries:
   - Includes `reference_properties` with extracted properties from q6 references (v2.2.0)
 - `ARCHITECTURE_STATE` - Tracks architecture analysis progress (persists)
 
-### 5-Level Architecture (equivalent to Atomic Design)
+### 5-Level Architectures
 
+**philosophy (Godot/Python):**
 ```
 ESTRUCTURA (main.tscn)
     └── PANTALLA (*_screen) - Unique user view
           └── CONTENEDOR (*_system) - Reusable logic
                 └── COMPONENTE (*_component) - Combines pieces
                       └── PIEZA (*_piece) - Atomic, ONE thing
+```
+
+**web-philosophy (Atomic Design):**
+```
+PAGE (pages/) - Concrete instance with real data
+    └── TEMPLATE (templates/) - Page layout, organism distribution
+          └── ORGANISM (organisms/) - Complex section, combines molecules
+                └── MOLECULE (molecules/) - Functional group of atoms
+                      └── ATOM (atoms/) - Basic indivisible element
 ```
 
 ## Critical Rule: Tools Guide Analysis (v2.3.0)
@@ -196,7 +238,12 @@ q6 now supports a `references` parameter for exhaustive analysis of code to repl
 
 ## Language Support
 
-Naming conventions and code smell detection for:
+**philosophy-mcp** (naming conventions and code smell detection):
 - **Godot**: `*_piece.gd`, `*_component.gd`, `*_system.gd`, `*_screen.gd`
 - **Python**: `pieces/`, `components/`, `systems/`, `screens/` folders
-- **Web**: `atoms/`, `molecules/`, `organisms/`, `templates/` (Atomic Design)
+
+**web-philosophy-mcp** (naming conventions and code smell detection):
+- **Web**: `atoms/`, `molecules/`, `organisms/`, `templates/`, `pages/` folders
+- **CSS**: Variables, specificity, DRY blocks
+- **HTML**: Semantic elements, accessibility, visual DRY
+- **JS**: Modern syntax (`const/let`), cached DOM queries
