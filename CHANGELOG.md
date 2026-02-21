@@ -4,6 +4,27 @@ Historial de cambios del MCP de Filosofía de Programación UniversInside.
 
 ---
 
+## [Web 1.0.1] - 2026-02-13
+
+### Añadido
+- **Instaladores para web-philosophy-mcp**: Scripts de instalación para tres contextos.
+  - Funcionalidad: Cualquier persona puede instalar web-philosophy con un solo script. En Mac/Linux elige destino (Claude Code terminal+VS Code, Claude Desktop, o ambos). En Windows ejecuta INSTALAR.bat. Si ya tiene philosophy instalado, no se borra.
+  - Técnico: `install.sh` (Mac/Linux con menú y manipulación JSON vía Python), `install-windows.ps1` (Windows con preservación de servidores existentes vía ConvertFrom-Json), `update-windows.ps1` (actualizador), wrappers `.bat`.
+- **Referencia cruzada en instaladores philosophy-mcp**: Los instaladores de philosophy-mcp ahora mencionan la existencia de web-philosophy al final.
+
+### Archivos creados
+- `web-philosophy-mcp/install.sh`
+- `web-philosophy-mcp/install-windows.ps1`
+- `web-philosophy-mcp/update-windows.ps1`
+- `web-philosophy-mcp/INSTALAR.bat`
+- `web-philosophy-mcp/ACTUALIZAR.bat`
+
+### Archivos modificados
+- `philosophy-mcp/install-windows.ps1` — mensaje informativo sobre web-philosophy
+- `philosophy-mcp/update-windows.ps1` — mensaje informativo sobre web-philosophy
+
+---
+
 ## [Web 1.0.0] - 2026-02-13
 
 ### Añadido

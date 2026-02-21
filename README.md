@@ -53,7 +53,12 @@ claude-tools/
 │
 ├── web-philosophy-mcp/           # MCP Server para Web (HTML/CSS/JS)
 │   ├── server.py                 # Servidor MCP (~4600 líneas)
-│   └── requirements.txt
+│   ├── requirements.txt
+│   ├── install.sh                # Instalador Mac/Linux (terminal + VS Code + Desktop)
+│   ├── INSTALAR.bat              # Instalador Windows
+│   ├── ACTUALIZAR.bat            # Actualizador Windows
+│   ├── install-windows.ps1       # PowerShell installer
+│   └── update-windows.ps1        # PowerShell updater
 │
 └── filosofia/                    # Configuración para usuarios
     ├── CLAUDE.md                 # Instrucciones para proyectos

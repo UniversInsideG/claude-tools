@@ -262,4 +262,7 @@ Write-Host "  1. Abre Claude Code"
 Write-Host "  2. Ejecuta /mcp para verificar 'philosophy'"
 Write-Host "  3. Usa /filosofia [tarea] para probar el flujo completo"
 Write-Host ""
+Write-Host "Si tambien trabajas con HTML/CSS/JS:" -ForegroundColor Gray
+Write-Host "  cd ..\web-philosophy-mcp && INSTALAR.bat" -ForegroundColor Gray
+Write-Host ""
 Read-Host "Presiona Enter para salir"
