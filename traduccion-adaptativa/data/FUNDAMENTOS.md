@@ -59,7 +59,7 @@ Constantes que aplican siempre:
 
 **Como construye comprension:** Retiene 87% visual vs 50% textual. Procesa imagenes 3x mas rapido que texto. Patron: ve el grafico primero, luego lee texto breve para confirmar, integra. Hiper-observador: detecta sombras, proporciones, inconsistencias. Analiza ventajas estrategicas en todo.
 
-**Que texto necesita:** Breve, claro, secuencialmente logico. Anclado a elementos visuales (graficos, barras, iconos). Datos cuantitativos dentro de SVGs, no como texto suelto. Badges de estado (fortaleza/debilidad). El texto es imprescindible para que lo visual tenga sentido, pero corto y concreto.
+**Que texto necesita:** Breve, claro, secuencialmente logico. Anclado a elementos visuales (graficos, barras, iconos). Datos cuantitativos dentro de SVGs, no como texto suelto. Badges de estado (fortaleza/debilidad). El texto es imprescindible para que lo visual tenga sentido, pero corto y concreto. En emails-tarea, cada tarea lleva un ancla visual distintiva que represente SU contenido especifico (SVG en HTML, emoji en email). No iconos genericos — iconos que anclen la tarea a una imagen mental concreta. Con 87% de retencion visual, el icono es lo que recuerda.
 
 **Que lo desconecta:** Sobrecarga textual sin apoyo visual. Info pre-enlazada que quita libertad. Falta de datos especificos.
 
@@ -96,6 +96,20 @@ Constantes que aplican siempre:
 **Presentacion:** Mind-map 1400px, fondo NEGRO (#0a0a0a) que maximice contraste. Colores neon luminosos para nodos, bordes y highlights que permitan organizar la informacion de un vistazo. Glow en bordes y hover. Paneles expandibles.
 
 - **Referencia**: `data/references/cecilia_processing_report.html`
+
+### Jesus — Visual-Secuencial / Flujo Contextualizado
+
+**Como construye comprension:** Dos fases: PRIMERO ve el panorama completo de un vistazo ("De un vistazo aprecio toda la informacion", "De un vistazo veo todo el proceso"), LUEGO profundiza secuencialmente. Necesita el marco general antes de los detalles: "prefieres entender primero el marco general antes de pasar a la accion". Su 0% global NO significa que no necesite vision de conjunto — significa que esa vision debe estar ESTRUCTURADA. Tambien necesita CONTEXTO antes de cada pieza individual: "En las imagenes me falta contexto", "Una vez conozco el contexto, y sabiendo que representan las imagenes, me resulta mas facil". Memoria visual 16/16 (100%) vs textual 9/16 (56%), preferencia visual 5/6 (83%) vs textual 2/6 (33%). Procesamiento 100% secuencial (3/3) — el orden es requisito, no preferencia. Aprendizaje: teorizar -> reflexionar -> practicar -> actuar. Detecta capas/planos, agrupa elementos diversos en unidades cohesionadas, usa el contraste para organizar.
+
+**Que texto necesita:** Breve y funcional — el texto establece el contexto que activa su canal visual, no es el canal principal. Cada bloque de texto enmarca lo que va a ver: titulo + descripcion corta antes del elemento visual. Estructura clara: titulo -> cita -> explicacion. Secuencial, ordenado, paso a paso. Datos concretos anclados a visuales (porcentajes dentro de graficos, no como texto suelto). El texto puro sin apoyo visual le cuesta: "El texto puro no es tu formato optimo".
+
+**Que lo desconecta:** Falta de contexto — informacion visual sin marco de referencia pierde eficacia incluso siendo su canal fuerte. Informacion no lineal o desordenada — con 0/3 en procesamiento global, la informacion sin estructura clara le genera friccion directa. Texto denso sin apoyo visual — con 2/6 en preferencia textual y 9/16 en memoria textual, bloques de texto largo sin elementos graficos le cuestan el doble de esfuerzo. Ambiguedad — necesita saber que esta mirando y por que.
+
+**Como organiza:** DOS NIVELES: primero una vision de conjunto que muestre TODO el alcance del documento de un vistazo (resumen visual, tabla, o seccion de contexto que enumere las partes), y DESPUES las secciones detalladas en orden secuencial. El overview no es opcional — sin el, las secciones pierden el marco. Flujo secuencial de arriba a abajo para las secciones detalladas. Dentro de cada seccion: contexto primero, luego datos visuales, luego interpretacion. Cards en layout horizontal: caja de icono a la izquierda + (titulo + cita + descripcion) a la derecha. Conexiones entre secciones con flechas/conectores que expliciten la progresion. Agrupa por capas: "Hay cuatro planos". Busca unidad: "A pesar de su diversidad ofrecen una sensacion de bloque, de unidad". Usa contraste para distinguir: "Tres arboles de vivos colores reflejan un gran contraste".
+
+**Presentacion:** Estructura de dos niveles: contenedores `.seccion` BLANCOS (rgb(255,255,255), border-radius 12px, padding 32px, box-shadow) que agrupan cards hijas con fondo GRIS (rgb(248,248,248)). Cards en layout HORIZONTAL (flex, gap 20px): caja de icono 56x56 blanca con sombra a la izquierda, contenido a la derecha. Cards positivas con border-left 4px dorado, negativas con fondo rosado rgb(255,250,250) y border-left rojo. Badges de seccion 48x48 gradiente dorado->dorado claro rgb(245,215,110). Flechas SVG entre secciones (stroke-width 3, opacidad 0.4). Citas italic sin fondo, border-left 2px. Cero interactividad. Responsive a 768px. Referencia CSS exacta: `data/references/jesus_processing_report.html`.
+
+- **Referencia**: `data/references/jesus_processing_report.html`
 
 ---
 
@@ -151,6 +165,7 @@ data/references/
 ├── miguel_processing_report.html    # Informe cognitivo Miguel (completo)
 ├── celeste_processing_report.html   # Informe cognitivo Celeste (completo, 1123 lineas)
 ├── cecilia_processing_report.html   # Informe cognitivo Cecilia (completo, 607 lineas)
+├── jesus_processing_report.html     # Informe cognitivo Jesus (completo)
 └── miguel_raw_data.json             # Datos brutos del test de Miguel
 ```
 

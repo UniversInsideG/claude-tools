@@ -32,6 +32,7 @@ cp "$SCRIPT_DIR/data/COMO_AÑADIR_PERFIL.md" "$INSTALL_DIR/"
 cp "$SCRIPT_DIR/data/references/miguel_processing_report.html" "$INSTALL_DIR/data/references/"
 cp "$SCRIPT_DIR/data/references/celeste_processing_report.html" "$INSTALL_DIR/data/references/"
 cp "$SCRIPT_DIR/data/references/cecilia_processing_report.html" "$INSTALL_DIR/data/references/"
+cp "$SCRIPT_DIR/data/references/jesus_processing_report.html" "$INSTALL_DIR/data/references/"
 
 # Instalar skill con rutas resueltas
 echo "  Instalando skill /traduccion..."

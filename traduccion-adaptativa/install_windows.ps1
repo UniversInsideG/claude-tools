@@ -32,6 +32,7 @@ Copy-Item (Join-Path $ScriptDir "data\COMO_AÑADIR_PERFIL.md") $InstallDir -Forc
 Copy-Item (Join-Path $ScriptDir "data\references\miguel_processing_report.html") (Join-Path $InstallDir "data\references\") -Force
 Copy-Item (Join-Path $ScriptDir "data\references\celeste_processing_report.html") (Join-Path $InstallDir "data\references\") -Force
 Copy-Item (Join-Path $ScriptDir "data\references\cecilia_processing_report.html") (Join-Path $InstallDir "data\references\") -Force
+Copy-Item (Join-Path $ScriptDir "data\references\jesus_processing_report.html") (Join-Path $InstallDir "data\references\") -Force
 
 # Instalar skill con rutas resueltas
 Write-Host "  Instalando skill /traduccion..."

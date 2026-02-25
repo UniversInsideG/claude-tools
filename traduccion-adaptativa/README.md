@@ -30,7 +30,7 @@ Si Claude Code estaba abierto, reinicialo para que cargue la skill.
 
 Si no especificas nada, te pregunta:
 1. Que mensaje quieres traducir (pega el texto o indica un archivo)
-2. Para quien (Miguel / Celeste / Cecilia)
+2. Para quien (Miguel / Celeste / Cecilia / Jesus)
 3. En que formato (HTML documento / Email / Signal)
 
 ### Ejemplos
@@ -50,6 +50,7 @@ Si no especificas nada, te pregunta:
 | **Miguel** | Visual-analitico | Dashboard: cards con SVGs, barras, metricas. Fondo oscuro. Texto breve anclado a visuales |
 | **Celeste** | Global/circular con precision | Grid de cards con navegacion circular. Fondo azul oscuro. Mixto visual+texto con datos cuantitativos |
 | **Cecilia** | Global/mind-map | Mapa mental con ramas expandibles. Fondo negro con neon. Color en estructura, texto neutro |
+| **Jesus** | Visual-secuencial | Flujo contextualizado: vision de conjunto primero, luego detalle secuencial. Fondo claro. Todo visible sin interactividad |
 
 ## Formatos de salida
 
@@ -72,13 +73,14 @@ Si no especificas nada, te pregunta:
       miguel_processing_report.html        <- informe cognitivo Miguel
       celeste_processing_report.html       <- informe cognitivo Celeste
       cecilia_processing_report.html       <- informe cognitivo Cecilia
+      jesus_processing_report.html         <- informe cognitivo Jesus
 ```
 
 No modifica ni borra ningun archivo existente en `~/.claude/`.
 
 ## Añadir nuevos perfiles
 
-Para incorporar a una nueva persona (ej: Jesus), sigue la guia en `COMO_AÑADIR_PERFIL.md`. Requiere un informe de procesamiento cognitivo (HTML del test) de la persona.
+Para incorporar a una nueva persona, sigue la guia en `COMO_AÑADIR_PERFIL.md`. Requiere un informe de procesamiento cognitivo (HTML del test) de la persona.
 
 ## Documentacion
 

@@ -46,13 +46,16 @@ Leer el HTML renderizado y el codigo fuente. Extraer DOS dimensiones:
 - Nivel de interactividad (hover, click, drag, modales)
 
 ### Dimension organizativa (como se ESTRUCTURA la informacion)
-- Que va primero, que va despues
+- **Patron de documento-nivel**: ¿la persona necesita ver el panorama completo ANTES de profundizar? Buscar frases como "de un vistazo", "vision de conjunto", "marco general primero". Esto es diferente del orden de secciones — es si necesita un overview/resumen estructurado al inicio del documento que le muestre que va a encontrar y como se relaciona todo
+- Que va primero, que va despues dentro de cada seccion
 - Como se agrupan los conceptos (por naturaleza, por secuencia, por relacion)
 - Como se profundiza (modales, expandibles, click to reveal)
 - Como se navega entre secciones (lineal, circular, libre)
 - Que relacion tienen las secciones entre si
 
 **Leccion**: en la primera version de los perfiles solo se extrajo la dimension visual (colores, layout, CSS). Faltaba la organizativa. El resultado era un HTML bonito pero mal estructurado para el receptor. Ambas dimensiones son igualmente importantes.
+
+**Leccion (Jesus)**: su procesamiento es 100% secuencial y 0% global, pero eso NO significa que no necesite vision de conjunto. Significa que esa vision de conjunto debe estar ESTRUCTURADA (no desordenada). Se omitio el patron "De un vistazo aprecio toda la informacion" y la primera traduccion de un documento tipo Canvas (grid con multiples bloques simultaneos) se convirtio en cards secuenciales sin panorama — perdia el marco de referencia. El patron de documento-nivel es una dimension SEPARADA del patron de procesamiento secuencial/global.
 
 ---
 
@@ -81,9 +84,11 @@ Los anti-patrones especificos que hacen que la persona pierda interes o no pueda
 La estructura que la persona necesita para navegar y entender. No es como "queda bonito" sino como PIENSA.
 
 ### 5. Presentacion visual
-Especificaciones concretas: ancho, fondo, colores, tipos de cards, elementos interactivos.
+Especificaciones concretas: ancho, fondo, colores, tipos de cards, elementos interactivos. Los valores CSS se extraen del CODIGO FUENTE del informe, no de la impresion visual. Si el informe renderizado muestra "cards claras", hay que leer el CSS para saber si el fondo es blanco `rgb(255,255,255)` o gris `rgb(248,248,248)` — la diferencia importa cuando hay cards dentro de contenedores.
 
 **Leccion sobre preferencias vs informe**: el informe de Cecilia usaba fondo purpura, pero Cecilia explicitamente dijo que no le gustaban los fondos purpura. Prefiere negro con colores neon. **Siempre preguntar a la persona** — el informe es referencia, pero las preferencias directas tienen prioridad.
+
+**Leccion (Jesus)**: la primera version del perfil decia "cards blancas" y "layout vertical" porque se describio desde la impresion visual. El codigo fuente decia cards GRISES `rgb(248,248,248)` dentro de contenedores BLANCOS `rgb(255,255,255)`, y layout HORIZONTAL (flex con icon-box a la izquierda). Leer el CSS exacto habria evitado el error.
 
 ---
 
@@ -144,6 +149,9 @@ Este paso es CRITICO. Los tres perfiles existentes requirieron multiples correcc
 | Celeste | Solo patrones visuales extraidos | Añadida dimension organizativa |
 | Cecilia | Fondo purpura (del informe) | Negro con neon (preferencia directa) |
 | Cecilia | Exceso de color en texto | Color en estructura, texto neutro |
+| Jesus | CSS descrito desde impresion visual | Extraer valores exactos del codigo fuente |
+| Jesus | Faltaba patron de overview/panorama | Añadir "De un vistazo veo todo" como primera fase |
+| Jesus | 0% global interpretado como "no necesita vision de conjunto" | 0% global = la vision de conjunto debe estar estructurada, no que no la necesite |
 
 **Cada correccion de la persona se incorpora al perfil y a las reglas generales del sistema** (FUNDAMENTOS.md y traduccion.md). Asi el sistema mejora con cada iteracion.
 

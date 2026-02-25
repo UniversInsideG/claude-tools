@@ -22,6 +22,7 @@ Receptores disponibles (cada uno tiene un codigo de traduccion fijo):
 - **Miguel** — procesamiento secuencial, visual dominante
 - **Celeste** — procesamiento global/circular, visual+texto preciso
 - **Cecilia** — procesamiento global/mind-map, asociativo-activo
+- **Jesus** — procesamiento visual-secuencial, contexto antes de visual
 
 ### Paso 3: Identificar el medio
 - **Documento HTML** — para leer en navegador (completo, con interactividad)
@@ -83,7 +84,7 @@ font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
 Miguel retiene el 87% de la informacion visual pero solo el 50% textual. Procesa imagenes 3x mas rapido que texto. Su patron es: ve el grafico/visual primero, luego lee el texto breve que lo acompana para confirmar, y entonces integra. Es hiper-observador: detecta sombras, proporciones, inconsistencias. Analiza ventajas estrategicas en todo lo que ve. Integra multiples capas de informacion simultaneamente.
 
 **Que texto necesita:**
-Breve, claro, secuencialmente logico. Cada pieza de texto va anclada a un elemento visual (grafico, barra, icono). Los datos son SIEMPRE cuantitativos y visibles: porcentajes dentro de SVGs, no como texto suelto. Badges de estado para clasificar rapidamente (fortaleza/debilidad/mixto). El texto no desaparece — es imprescindible para que lo visual tenga sentido — pero es corto y concreto.
+Breve, claro, secuencialmente logico. Cada pieza de texto va anclada a un elemento visual (grafico, barra, icono). Los datos son SIEMPRE cuantitativos y visibles: porcentajes dentro de SVGs, no como texto suelto. Badges de estado para clasificar rapidamente (fortaleza/debilidad/mixto). El texto no desaparece — es imprescindible para que lo visual tenga sentido — pero es corto y concreto. En emails-tarea, cada tarea lleva un ancla visual distintiva que represente SU contenido especifico — no iconos genericos sino iconos que anclen la tarea a una imagen mental concreta. En HTML: SVG dedicado por tarea. En email: emoji especifico (porque email no soporta SVG). Con 87% de retencion visual, el icono es lo que recuerda.
 
 **Que lo desconecta:**
 - Sobrecarga textual: bloques largos sin apoyo visual lo pierden
@@ -156,12 +157,51 @@ Texto acompanado de visual: como su secuencia es imagen -> texto -> reinterpreta
 - Paneles expandibles con animacion, visual-grid de cards dentro de cada panel
 - Efectos de luz y brillo: bordes neon, sombras luminosas, hover con glow intenso
 
+#### Jesus — Visual-Secuencial / Flujo Contextualizado
+
+**Como construye comprension:**
+Dos fases: PRIMERO ve el panorama completo de un vistazo ("De un vistazo aprecio toda la informacion", "De un vistazo veo todo el proceso"), LUEGO profundiza secuencialmente seccion por seccion. Necesita el marco general antes de los detalles: "prefieres entender primero el marco general antes de pasar a la accion". Su 0% global NO significa que no necesite vision de conjunto — significa que esa vision de conjunto debe estar ESTRUCTURADA, no desordenada. Sin el panorama primero, las secciones detalladas pierden sentido porque no sabe donde encajan. Tambien necesita CONTEXTO antes de cada pieza individual: "En las imagenes me falta contexto", "Una vez conozco el contexto, y sabiendo que representan las imagenes, me resulta mas facil". Memoria visual 16/16 (100%) frente a textual 9/16 (56%), preferencia visual 5/6 (83%) frente a textual 2/6 (33%). Procesamiento 100% secuencial (3/3) — el orden es requisito, no preferencia. Aprendizaje: teorizar -> reflexionar -> practicar -> actuar (necesita el "por que" antes del "como"). Detecta capas y planos en lo que ve: "Hay cuatro planos... Y en toda la imagen es el conector". Agrupa elementos diversos en unidades cohesionadas: "A pesar de su diversidad ofrecen una sensacion de bloque, de unidad". Usa el contraste como herramienta de comprension: "Tres arboles de vivos colores reflejan un gran contraste".
+
+**Que texto necesita:**
+Breve y funcional — el texto establece el contexto que activa su canal visual, no es el canal principal. Cada bloque de texto enmarca lo que va a ver: titulo + descripcion corta ANTES del elemento visual. Estructura clara y repetida: titulo -> cita textual -> explicacion concreta (1-2 frases). Siempre secuencial, ordenado, paso a paso. Datos cuantitativos anclados a graficos (porcentajes dentro de SVGs circulares, no como texto suelto). El texto puro sin apoyo visual le cuesta: con 2/6 en preferencia textual, bloques de texto largo sin elementos graficos requieren el doble de esfuerzo.
+
+**Que lo desconecta:**
+- Falta de contexto: "En las imagenes me falta contexto" — informacion visual sin marco de referencia pierde eficacia incluso siendo su canal mas fuerte
+- Informacion no lineal o desordenada: con 0/3 en procesamiento global, "la informacion no lineal te genera friccion" — necesita orden como requisito, no como preferencia
+- Texto denso sin apoyo visual: con 2/6 en preferencia textual y 9/16 en memoria textual, los bloques de texto largo sin graficos le cuestan el doble de esfuerzo y retiene la mitad
+- Ambiguedad: necesita saber que esta mirando y por que antes de poder procesar — sin esa claridad, incluso lo visual se vuelve ruido
+
+**Como organiza la informacion:**
+- DOS NIVELES: primero una vision de conjunto que muestre TODO el alcance del documento de un vistazo (resumen visual, tabla, o seccion de contexto que enumere las partes), y DESPUES las secciones detalladas en orden secuencial. El overview no es opcional — sin el, las secciones pierden el marco de referencia
+- Flujo secuencial de arriba a abajo para las secciones detalladas. Dentro de cada seccion: contexto primero, luego datos visuales, luego interpretacion
+- Dentro de cada seccion, cards en layout HORIZONTAL (flex, gap 20px): caja de icono 56x56 a la izquierda + (titulo + cita + descripcion) a la derecha. Las cards se apilan verticalmente entre si
+- Conexiones entre secciones con flechas/conectores SVG que expliciten la progresion (seccion 1 -> seccion 2 -> seccion 3)
+- Agrupa por capas: identifica planos y niveles en la informacion
+- Busca unidad en la diversidad: las partes deben sentirse como un todo cohesionado
+- Usa contraste para distinguir: elementos diferenciados visualmente (bordes de color, fondos distintos) para categorizar
+
+**Presentacion visual — REPLICAR EL CSS EXACTO del informe de referencia (`data/references/jesus_processing_report.html`):**
+- **Estructura de dos niveles**: contenedor `.seccion` BLANCO (rgb(255,255,255), border-radius 12px, padding 32px, box-shadow 0 2px 8px rgba(0,0,0,0.06)) agrupa cards hijas. Las cards hijas van DENTRO del contenedor con fondo GRIS rgb(248,248,248)
+- **Layout horizontal de cards**: cada card usa `display: flex; gap: 20px` — caja de icono a la IZQUIERDA, contenido a la DERECHA. NO layout vertical compacto
+- **Cajas de icono 56x56**: fondo blanco, border-radius 12px, box-shadow 0 2px 6px rgba(0,0,0,0.08), contienen SVG de 32x32
+- **Cards positivas** (`.aspecto-clave`): fondo gris rgb(248,248,248), border-left 4px solid rgb(212,175,55), border-radius 10px, padding 24px
+- **Cards negativas** (`.limitante`): fondo rosado rgb(255,250,250), border-left 4px solid rgb(200,100,100), icono con box-shadow rgba(200,100,100,0.15)
+- **Cards destacadas** (`.talento`): fondo gradiente dorado rgba(212,175,55,0.08)->rgba(245,215,110,0.08), border 2px solid rgba(212,175,55,0.3), icono 64x64
+- **Badges de seccion**: circulos 48x48, gradiente rgb(212,175,55)->rgb(245,215,110) (dorado a dorado CLARO), font-weight 700, font-size 1.2rem
+- **Seccion-header**: flex con gap 16px, margin-bottom 24px, padding-bottom 16px, border-bottom 2px solid rgb(248,248,248)
+- **Citas**: italic, rgb(102,102,102), 0.9rem, padding-left 12px, border-left 2px solid rgb(212,175,55), SIN fondo
+- **Flechas conectoras**: SVG 24x32, path "M12 0 L12 24 M4 16 L12 24 L20 16", stroke-width 3, opacidad 0.4
+- **Fondo pagina**: rgb(248,248,248), contenedor 900px centrado, body padding 24px
+- **Cero interactividad**: sin JS, sin hover, sin modales, sin expandibles — todo visible de una vez
+- **Responsive**: @media max-width 768px, body padding 16px, seccion padding 20px, cards a flex-direction column
+
 ### Capa 3: Adaptacion de contenido (cambia cada documento)
 
 El texto se adapta al procesamiento del receptor:
-- Para Miguel: directo, concreto, con pasos claros y datos numericos
+- Para Miguel: directo, concreto, con pasos claros y datos numericos. Cada tarea con ancla visual distintiva (SVG en HTML, emoji en email) que represente su contenido especifico
 - Para Celeste: vision de conjunto con citas de soporte y metricas
 - Para Cecilia: conceptos conectados, asociaciones, highlights clave
+- Para Jesus: vision de conjunto primero (que va a ver y como se estructura), luego cada seccion en detalle secuencial
 
 ---
 
@@ -180,6 +220,7 @@ Un documento con: "1. Contexto → 2. Decisiones → 3. Compromisos"
 - **Miguel**: tres bloques secuenciales con flechas entre ellos, dentro de cada uno parrafos cortos paso a paso
 - **Celeste**: tres cards en grid con el mismo orden (1,2,3), dentro de cada una datos con metricas y citas
 - **Cecilia**: nodo central "Documento" con tres ramas (Contexto, Decisiones, Compromisos), cada una expandible
+- **Jesus**: primero una seccion de contexto que muestre las 3 partes de un vistazo (que son y que contienen), luego las tres secciones en detalle con flechas conectoras entre ellas, cada una con todos los datos del original, todo visible sin interactividad
 
 ---
 
@@ -262,5 +303,5 @@ Si el usuario especifico mensaje, receptor o medio en $ARGUMENTS, usalo directam
 
 Si no, pregunta:
 1. Que mensaje quieres traducir? (pega el texto o indica la ruta del archivo)
-2. Para quien? (Miguel / Celeste / Cecilia)
+2. Para quien? (Miguel / Celeste / Cecilia / Jesus)
 3. En que formato? (HTML documento / Email / Signal)
