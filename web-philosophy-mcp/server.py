@@ -537,12 +537,19 @@ DEPENDENCIAS (funciones a llamar):
 2. Que la función existe
 3. Que la firma (parámetros, tipos) coincide
 
-REFERENCIAS (código a replicar) - NUEVO:
+FUNCIONES ELIMINADAS (dirección inversa):
+1. Lista de funciones que se van a mover/eliminar del archivo original
+2. Busca en TODO el proyecto quién las llama
+3. Si encuentra llamadas externas → BLOQUEA con lista de archivos afectados
+4. Así el diseño contempla wrappers/delegadores ANTES de escribir código
+
+REFERENCIAS (código a replicar):
 1. Extrae propiedades del código de referencia
 2. Muestra los valores encontrados para análisis exhaustivo
 3. Guarda las propiedades para que validate las verifique después
 
 Si hay discrepancias, NO puedes continuar hasta resolverlas.
+En refactors: si no se pasan removed_functions, se muestra warning.
 Requiere: Paso 5 completado.""",
             inputSchema={
                 "type": "object",
@@ -607,6 +614,17 @@ Requiere: Paso 5 completado.""",
                             },
                             "required": ["file", "must_document"]
                         }
+                    },
+                    "removed_functions": {
+                        "type": "array",
+                        "description": "Lista de funciones que se van a ELIMINAR/MOVER del archivo original. El MCP busca en todo el proyecto quién las llama. Si encuentra llamadas externas, BLOQUEA.",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "source_file": {
+                        "type": "string",
+                        "description": "Archivo del que se eliminan las funciones (relativo al proyecto). Se excluye de la búsqueda para evitar falsos positivos."
                     },
                     "decision_usuario": {
                         "type": "boolean",
@@ -935,6 +953,8 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             arguments["project_path"],
             arguments.get("dependencies", []),
             arguments.get("references", []),
+            arguments.get("removed_functions", []),
+            arguments.get("source_file"),
             arguments.get("decision_usuario", False),
             arguments.get("justificacion_salto"),
             arguments.get("usuario_verifico", False)
@@ -2555,6 +2575,7 @@ def extraer_propiedades_referencia(content: str, lines: list, must_document: lis
 
 
 async def step6_verificar_dependencias(project_path: str, dependencies: list = None, references: list = None,
+                                        removed_functions: list = None, source_file: str = None,
                                         decision_usuario: bool = False, justificacion_salto: str = None,
                                         usuario_verifico: bool = False) -> str:
     """PASO 6: Verificar dependencias externas y referencias antes de escribir código"""
@@ -2581,6 +2602,8 @@ async def step6_verificar_dependencias(project_path: str, dependencies: list = N
         dependencies = []
     if references is None:
         references = []
+    if removed_functions is None:
+        removed_functions = []
 
     verified = []
     issues = []
@@ -2665,6 +2688,115 @@ async def step6_verificar_dependencias(project_path: str, dependencies: list = N
                 "params": real_params,
                 "return": real_return
             })
+
+    # Verificar funciones eliminadas (dirección inversa: ¿quién me llama?)
+    import subprocess
+    import shutil
+
+    removed_refs = []  # Archivos que llaman a funciones eliminadas
+    web_extensions = [".html", ".css", ".js"]
+    rg_available = shutil.which("rg") is not None
+
+    # Normalizar source_file para exclusión
+    source_file_resolved = None
+    if source_file:
+        source_file_resolved = (path / source_file).resolve()
+
+    for func_name in removed_functions:
+        callers = []  # Archivos que llaman a esta función
+
+        if rg_available:
+            try:
+                glob_args = []
+                for ext in web_extensions:
+                    glob_args.extend(["--glob", f"*{ext}"])
+                result = subprocess.run(
+                    ["rg", "-n", "--glob", "!.git", "--glob", "!node_modules", "--glob", "!dist", "--glob", "!build"] + glob_args + [func_name],
+                    capture_output=True, text=True, cwd=str(path), timeout=30
+                )
+                for line in result.stdout.splitlines():
+                    # Formato rg -n: archivo:linea:contenido
+                    parts = line.split(":", 2)
+                    if len(parts) >= 3:
+                        file_found = parts[0]
+                        line_num = parts[1]
+                        line_content = parts[2].strip()
+                        file_resolved = (path / file_found).resolve()
+                        # Excluir source_file
+                        if source_file_resolved and file_resolved == source_file_resolved:
+                            continue
+                        callers.append({
+                            "file": file_found,
+                            "line": line_num,
+                            "content": line_content
+                        })
+            except (subprocess.TimeoutExpired, Exception):
+                pass
+        else:
+            # Fallback: Python
+            for ext in web_extensions:
+                for file in path.rglob(f"*{ext}"):
+                    if ".git" in str(file) or "node_modules" in str(file) or "dist" in str(file) or "build" in str(file):
+                        continue
+                    if source_file_resolved and file.resolve() == source_file_resolved:
+                        continue
+                    try:
+                        content = file.read_text(encoding='utf-8', errors='ignore')
+                        for i, line in enumerate(content.split('\n'), 1):
+                            if func_name in line:
+                                callers.append({
+                                    "file": str(file.relative_to(path)),
+                                    "line": str(i),
+                                    "content": line.strip()
+                                })
+                    except:
+                        pass
+
+        if callers:
+            removed_refs.append({
+                "function": func_name,
+                "callers": callers
+            })
+
+    # Guardar en SESSION_STATE para validate
+    SESSION_STATE["removed_functions_refs"] = removed_refs
+
+    # Si hay llamadas externas a funciones eliminadas → BLOQUEAR
+    if removed_refs:
+        response = f"""
+╔══════════════════════════════════════════════════════════════════╗
+║  ⛔ BLOQUEO: FUNCIONES ELIMINADAS CON LLAMADAS EXTERNAS          ║
+║  "Verificar ANTES de escribir, no DESPUÉS de fallar"             ║
+╚══════════════════════════════════════════════════════════════════╝
+
+Las siguientes funciones se van a eliminar/mover, pero otros archivos las llaman:
+
+"""
+        for ref in removed_refs:
+            response += f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            response += f"❌ {ref['function']}() — {len(ref['callers'])} referencia(s) externa(s):\n\n"
+            for caller in ref['callers']:
+                response += f"   📄 {caller['file']}:{caller['line']}\n"
+                response += f"      {caller['content']}\n\n"
+
+        response += f"""━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚫 NO PUEDES CONTINUAR hasta contemplar estos archivos en tu diseño.
+
+Opciones:
+1. Añadir wrappers/delegadores en el archivo original para mantener la interfaz pública
+2. Actualizar los archivos que llaman a estas funciones
+3. Ambas según el caso
+
+DEBES explicar al usuario qué archivos se romperían y proponer solución ANTES de escribir código.
+"""
+        return response
+
+    # Warning si es refactor y no se pasaron removed_functions
+    refactor_warning = None
+    tipo_cambio = SESSION_STATE.get("current_change_type", "")
+    if tipo_cambio == "refactor" and not removed_functions:
+        refactor_warning = "⚠️ Estás haciendo un refactor pero no indicaste removed_functions. ¿Estás eliminando/moviendo funciones del archivo original? Si es así, vuelve a llamar q6 con removed_functions para verificar quién las llama."
 
     # Procesar referencias (código a replicar)
     extracted_references = []
@@ -2828,12 +2960,23 @@ Opciones:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
 
+    # Mostrar funciones eliminadas verificadas (sin llamadas externas)
+    if removed_functions and not removed_refs:
+        response += f"\n✅ FUNCIONES ELIMINADAS VERIFICADAS: {len(removed_functions)}\n"
+        for func in removed_functions:
+            response += f"   ✓ {func}() — sin llamadas externas\n"
+        response += "\n"
+
     # Mostrar advertencias de referencias
     if reference_warnings:
         response += "\n⚠️ ADVERTENCIAS DE REFERENCIAS:\n"
         for warn in reference_warnings:
             response += f"   {warn['message']}\n"
         response += "\n"
+
+    # Mostrar warning de refactor sin removed_functions
+    if refactor_warning:
+        response += f"\n{refactor_warning}\n"
 
     response += f"""
 ✅ PASO 6 COMPLETADO

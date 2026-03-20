@@ -121,6 +121,7 @@ The server maintains two state dictionaries:
   - Includes `duplication_detected` with similarity analysis from q3
   - Includes `criterios_file` with path to criteria file written by q0
   - Includes `reference_properties` with extracted properties from q6 references (v2.2.0)
+  - Includes `removed_functions_refs` with external callers of removed functions from q6 (v2.6.0)
 - `ARCHITECTURE_STATE` - Tracks architecture analysis progress (persists)
 
 ### 5-Level Architectures
@@ -193,6 +194,7 @@ Claude: [THEN analyzes code guided by agreed criteria]
 - **q0 presentation gate (v2.4.0)**: `step_0_presented` blocks `confirmado_por_usuario=true` if criteria weren't presented first with `confirmado_por_usuario=false`
 - **architecture_analysis criterios_file (v2.4.0)**: Accepts optional `criterios_file` parameter to use criteria from a previous session without blocking
 - **q9 descripcion_funcional (v2.4.0)**: New parameter to document what changes for the user (functional), not just the technical change. CHANGELOG template shows both lines.
+- **Removed functions detection (v2.6.0)**: q6 accepts `removed_functions` (list of function names) and `source_file` (file to exclude). Greps project for external callers. If found, BLOCKS with list of affected files. Warning if `tipo_cambio` is "refactor" and `removed_functions` not provided.
 
 ## User Decision Parameter (v2.4.0, replaces v1.8.0)
 
@@ -235,6 +237,25 @@ q6 now supports a `references` parameter for exhaustive analysis of code to repl
 5. If properties are missing, validate shows warning
 
 **Use case:** When replicating UI configurations, node properties, or code patterns that must match exactly.
+
+## Removed Functions Detection (v2.6.0)
+
+q6 now supports `removed_functions` for reverse dependency verification — detecting who calls functions you're about to remove:
+
+```python
+"removed_functions": ["_apply_backpack_swap", "_ensure_backpack_and_stash"],
+"source_file": "scripts/player.gd"  # Excluded from search results
+```
+
+**How it works:**
+1. q6 greps the entire project for each function name (ripgrep if available, Python fallback)
+2. Excludes `source_file` from results to avoid false positives
+3. If external callers found → **BLOCKS** with list of affected files and lines
+4. If no callers → shows confirmation and continues
+5. If `tipo_cambio` is "refactor" and `removed_functions` not provided → warning reminder
+6. Saves results in `SESSION_STATE["removed_functions_refs"]`
+
+**Use case:** When extracting/moving functions from one file to another (refactors), ensures no external file breaks due to missing functions.
 
 ## Language Support
 
